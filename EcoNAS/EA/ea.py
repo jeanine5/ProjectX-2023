@@ -28,14 +28,21 @@ class NeuralNetwork(nn.Module):
 class NeuralArchitecture:
     def __init__(self, input_size, hidden_sizes, output_size, activation, layers, hyperparameters):
         self.model = NeuralNetwork(input_size, hidden_sizes, output_size, activation)
+        self.input_size = input_size
+        self.hidden_sizes = hidden_sizes
+        self.output_size = output_size
         self.layers = layers
         self.hyperparameters = hyperparameters
+        self.activation = activation
         self.validation_score = None
+        self.interpretability_score = 0.0
+        self.energy_score = None
 
     @classmethod
-    def random_initialization(cls, input_size, hidden_sizes, output_size, activation):
+    def random_initialization(cls, input_size, hidden_sizes, output_size):
 
         layers = torch.randint(1, 10, size=(1,)).item()
+        activation = nn.ReLU()
         hyperparameters = torch.randn(layers * 3)
 
         return cls(input_size, hidden_sizes, output_size, activation, layers, hyperparameters)
@@ -46,6 +53,23 @@ class NeuralArchitecture:
         :param architecture: The current artificial neural network to be mutated
         :return: mutated_architecture
         """
+
+    def calculate_interpretability(self, arch_b, loader, threshold):
+        """
+
+        :param arch_b: another architecture to compare with
+        :param loader: the sample to test interpretability with
+        :param threshold: interpreability threshold (delta)
+        :return:
+        """
+
+        arch_a_output = self.model(loader)
+        arch_b_output = arch_b.model(loader)
+
+        dist = torch.norm(arch_a_output, arch_b_output)
+
+        if dist < threshold:
+            self.interpretability_score = dist.item()
 
     def accuracy(self, outputs, labels):
         """
@@ -129,22 +153,36 @@ def initialize_cand_pool(population_size, input_size, hidden_sizes, output_size,
     cand_pool = []
 
     for _ in range(population_size):
-        architecture = NeuralArchitecture.random_initialization(input_size, hidden_sizes, output_size, activation)
+        architecture = NeuralArchitecture.random_initialization(input_size, hidden_sizes, output_size)
         cand_pool.append(architecture)
 
     return cand_pool
 
 
-def mutate(architecture):
+def mutate(architecture: NeuralArchitecture, loader, threshold):
+    """
+
+    :param architecture:
+    :param loader:
+    :param threshold:
+    :return:
+    """
     mutated_layers = torch.clamp(architecture.layers + torch.randint(-1, 2, size=(1,)), 1)
-    mutated_activation = nn.ReLU()
     mutated_hyperparameters = architecture.hyperparameters + torch.randn(mutated_layers.item() * 3)
 
-    return NeuralArchitecture(architecture.input_size, architecture.hidden_size, architecture.output_size,
-                              mutated_activation, mutated_layers, mutated_hyperparameters)
+    mutated_architecture = NeuralArchitecture(architecture.input_size, architecture.hidden_sizes,
+                                              architecture.output_size,
+                                              architecture.activation, mutated_layers, mutated_hyperparameters)
 
-def mutate_and_train(architecture, train_loader, val_loader, epochs=5, lr=0.001):
-    ...
+    mutated_architecture.calculate_interpretability(architecture, loader, threshold)
 
-def replace_lowest_scoring():
+    if (mutated_architecture.validation_score > architecture.validation_score and
+            mutated_architecture.interpretability_score > architecture.interpretability_score):
+
+        return mutated_architecture
+    else:
+        return architecture
+
+
+def replace_lowest_scoring(candidate_pool):
     ...
