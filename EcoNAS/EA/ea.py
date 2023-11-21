@@ -1,6 +1,8 @@
 """
 This contains the code for the Evolutionary Search algorithms used for our Artificial Neural Networks
 """
+import random
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -26,33 +28,26 @@ class NeuralNetwork(nn.Module):
 
 
 class NeuralArchitecture:
-    def __init__(self, input_size, hidden_sizes, output_size, activation, layers, hyperparameters):
+    def __init__(self, input_size, hidden_sizes, output_size, activation):
         self.model = NeuralNetwork(input_size, hidden_sizes, output_size, activation)
         self.input_size = input_size
         self.hidden_sizes = hidden_sizes
         self.output_size = output_size
-        self.layers = layers
-        self.hyperparameters = hyperparameters
-        self.activation = activation
-        self.validation_score = None
+        self.layers = None
+        self.hyperparameters = None
+        self.activation = nn.ReLU()
+        self.validation_score = 0.0
         self.interpretability_score = 0.0
-        self.energy_score = None
+        self.energy_score = 0.0
 
     @classmethod
     def random_initialization(cls, input_size, hidden_sizes, output_size):
 
-        layers = torch.randint(1, 10, size=(1,)).item()
+        cls.layers = torch.randint(1, 10, size=(1,)).item()
         activation = nn.ReLU()
-        hyperparameters = torch.randn(layers * 3)
+        cls.hyperparameters = torch.randn(cls.layers * 3)
 
-        return cls(input_size, hidden_sizes, output_size, activation, layers, hyperparameters)
-
-    def mutate(self, architecture):
-        """
-        Mutates the given architecture with a certain probability
-        :param architecture: The current artificial neural network to be mutated
-        :return: mutated_architecture
-        """
+        return cls(input_size, hidden_sizes, output_size, activation)
 
     def calculate_interpretability(self, arch_b, loader, threshold):
         """
@@ -104,8 +99,6 @@ class NeuralArchitecture:
                 acc += self.accuracy(outputs, targets) * len(targets)
                 n_samples += len(targets)
 
-        self.validation_score = loss / n_samples
-
         return loss / n_samples, acc / n_samples
 
     def train(self, loader, epochs=8, lr=0.001):
@@ -139,14 +132,15 @@ class NeuralArchitecture:
         return train_loss / n_samples, train_acc / n_samples
 
 
-def initialize_cand_pool(population_size, input_size, hidden_sizes, output_size, activation):
+def initialize_cand_pool(population_size, input_size, hidden_sizes, output_size, train_loader, val_loader):
     """
 
     :param population_size:
     :param input_size:
     :param hidden_sizes:
     :param output_size:
-    :param activation:
+    :param train_loader:
+    :param val_loader:
     :return:
     """
 
@@ -154,35 +148,65 @@ def initialize_cand_pool(population_size, input_size, hidden_sizes, output_size,
 
     for _ in range(population_size):
         architecture = NeuralArchitecture.random_initialization(input_size, hidden_sizes, output_size)
+        architecture.train(train_loader)
+        _, accuracy = architecture.evaluate(val_loader)
+        architecture.validation_score = accuracy
+
         cand_pool.append(architecture)
 
     return cand_pool
 
 
-def mutate(architecture: NeuralArchitecture, loader, threshold):
+def tournament_selection(population, tournament_size):
     """
 
-    :param architecture:
-    :param loader:
-    :param threshold:
+    :param s_population:
+    :param tournament_size:
     :return:
     """
-    mutated_layers = torch.clamp(architecture.layers + torch.randint(-1, 2, size=(1,)), 1)
-    mutated_hyperparameters = architecture.hyperparameters + torch.randn(mutated_layers.item() * 3)
 
-    mutated_architecture = NeuralArchitecture(architecture.input_size, architecture.hidden_sizes,
-                                              architecture.output_size,
-                                              architecture.activation, mutated_layers, mutated_hyperparameters)
+    # select s parent models from population P
+    selected_parents = random.sample(population, tournament_size)
 
-    mutated_architecture.calculate_interpretability(architecture, loader, threshold)
+    # determine two parents w/ best fitness vals
+    parent_a = max(selected_parents, key=lambda x: x.validation_score)
+    selected_parents.remove(parent_a)
+    parent_b = max(selected_parents, key=lambda x: x.validation_score)
 
-    if (mutated_architecture.validation_score > architecture.validation_score and
-            mutated_architecture.interpretability_score > architecture.interpretability_score):
-
-        return mutated_architecture
-    else:
-        return architecture
+    return parent_a, parent_b
 
 
-def replace_lowest_scoring(candidate_pool):
-    ...
+def crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture):
+    """
+
+    :param parent1:
+    :param parent2:
+    :return:
+    """
+    # Randomly choose a crossover point based on the number of hidden layers
+    crossover_point = random.randint(1, min(len(parent1.hidden_sizes), len(parent2.hidden_sizes)) - 1)
+    offspring_hidden_sizes = parent1.hidden_sizes[:crossover_point] + parent2.hidden_sizes[crossover_point:]
+    crossover_activation = parent1.activation if random.choice([True, False]) else parent2.activation
+    crossover_layers = parent1.layers if random.choice([True, False]) else parent2.layers
+    crossover_hyperparameters = (
+            parent1.hyperparameters[:crossover_point] + parent2.hyperparameters[crossover_point:]
+    )
+
+    offspring = NeuralArchitecture(
+        parent1.input_size,
+        offspring_hidden_sizes,
+        parent1.output_size,
+        crossover_activation,
+        crossover_layers,
+        crossover_hyperparameters,
+    )
+
+    return offspring
+
+
+def remove_lowest_scoring(population):
+    """
+
+    :param population:
+    :return:
+    """
