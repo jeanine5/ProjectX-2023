@@ -14,16 +14,26 @@ class NeuralNetwork(nn.Module):
     def __init__(self, input_size, hidden_sizes, output_size, activation):
         super(NeuralNetwork, self).__init__()
         self.input_size = input_size
-        self.hidden_layer = nn.Linear(input_size, hidden_sizes)
+
+        self.hidden_layers = nn.ModuleList()
+        for hidden_size in hidden_sizes:
+            hidden_layer = nn.Linear(input_size, hidden_size)
+            self.hidden_layers.append(hidden_layer)
+            self.input_size = hidden_size
+
         self.output_layer = nn.Linear(hidden_sizes, output_size)
         self.activation = activation
 
     def forward(self, x):
         batch_size = len(x)
         x = x.view(batch_size, self.input_size)
-        hidden = self.hidden_layer(x)
-        activation = F.relu(hidden)
-        output = self.output_layer(activation)
+
+        for layer in self.hidden_layers:
+            h = layer(x)
+            x = F.relu(h)
+
+        output = self.output_layer(x)
+
         return output
 
 
@@ -33,19 +43,24 @@ class NeuralArchitecture:
         self.input_size = input_size
         self.hidden_sizes = hidden_sizes
         self.output_size = output_size
-        self.layers = None
-        self.hyperparameters = None
-        self.activation = nn.ReLU()
+        self.activation = activation
         self.validation_score = 0.0
         self.interpretability_score = 0.0
         self.energy_score = 0.0
 
     @classmethod
-    def random_initialization(cls, input_size, hidden_sizes, output_size):
+    def random_initialization(cls, input_size, max_hidden_layers, max_hidden_size, output_size):
+        """
 
-        cls.layers = torch.randint(1, 10, size=(1,)).item()
+        :param input_size:
+        :param max_hidden_layers:
+        :param max_hidden_size:
+        :param output_size:
+        :return:
+        """
+        num_hidden_layers = random.randint(1, max_hidden_layers)
+        hidden_sizes = [random.randint(1, max_hidden_size) for _ in range(num_hidden_layers)]
         activation = nn.ReLU()
-        cls.hyperparameters = torch.randn(cls.layers * 3)
 
         return cls(input_size, hidden_sizes, output_size, activation)
 
@@ -132,24 +147,24 @@ class NeuralArchitecture:
         return train_loss / n_samples, train_acc / n_samples
 
 
-def initialize_cand_pool(population_size, input_size, hidden_sizes, output_size, train_loader, val_loader):
+def initialize_cand_pool(population_size, input_size, hidden_layers, hidden_size, output_size, val_loader):
     """
 
     :param population_size:
     :param input_size:
-    :param hidden_sizes:
+    :param hidden_layers:
+    :param hidden_size:
     :param output_size:
-    :param train_loader:
     :param val_loader:
     :return:
     """
-
     cand_pool = []
+    # init_arch = NeuralNetwork(input_size, hidden_sizes, output_size, activation=nn.ReLU())
 
     for _ in range(population_size):
-        architecture = NeuralArchitecture.random_initialization(input_size, hidden_sizes, output_size)
-        architecture.train(train_loader)
+        architecture = NeuralArchitecture.random_initialization(input_size, hidden_layers, hidden_size, output_size)
         _, accuracy = architecture.evaluate(val_loader)
+        # get interpretability
         architecture.validation_score = accuracy
 
         cand_pool.append(architecture)
@@ -160,7 +175,7 @@ def initialize_cand_pool(population_size, input_size, hidden_sizes, output_size,
 def tournament_selection(population, tournament_size):
     """
 
-    :param s_population:
+    :param population:
     :param tournament_size:
     :return:
     """
@@ -185,20 +200,15 @@ def crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture):
     """
     # Randomly choose a crossover point based on the number of hidden layers
     crossover_point = random.randint(1, min(len(parent1.hidden_sizes), len(parent2.hidden_sizes)) - 1)
-    offspring_hidden_sizes = parent1.hidden_sizes[:crossover_point] + parent2.hidden_sizes[crossover_point:]
-    crossover_activation = parent1.activation if random.choice([True, False]) else parent2.activation
-    crossover_layers = parent1.layers if random.choice([True, False]) else parent2.layers
-    crossover_hyperparameters = (
-            parent1.hyperparameters[:crossover_point] + parent2.hyperparameters[crossover_point:]
+    offspring_hidden_sizes = (
+            parent1.hidden_sizes[:crossover_point] + parent2.hidden_sizes[crossover_point:]
     )
 
     offspring = NeuralArchitecture(
         parent1.input_size,
         offspring_hidden_sizes,
         parent1.output_size,
-        crossover_activation,
-        crossover_layers,
-        crossover_hyperparameters,
+        parent1.activation
     )
 
     return offspring
