@@ -1,12 +1,18 @@
 """
 This contains the code for the Evolutionary Search algorithms used for our Artificial Neural Networks
 """
+import math
 import random
+
+import numpy as np
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import pymoo
+from pymoo.optimize import minimize
+
 from torch.utils.data import DataLoader, TensorDataset
 
 
@@ -44,9 +50,14 @@ class NeuralArchitecture:
         self.hidden_sizes = hidden_sizes
         self.output_size = output_size
         self.activation = activation
-        self.validation_score = 0.0
-        self.interpretability_score = 0.0
-        self.energy_score = 0.0
+        self.objectives = {
+            'accuracy': 0.0,
+            'interpretability': 0.0,
+            'energy': 0.0
+        }
+        self.rank = None
+        self.sp = set()
+
 
     @classmethod
     def random_initialization(cls, input_size, max_hidden_layers, max_hidden_size, output_size):
@@ -64,22 +75,66 @@ class NeuralArchitecture:
 
         return cls(input_size, hidden_sizes, output_size, activation)
 
-    def calculate_interpretability(self, arch_b, loader, threshold):
+    def introspectability_metric(self, loader):
         """
 
-        :param arch_b: another architecture to compare with
-        :param loader: the sample to test interpretability with
-        :param threshold: interpreability threshold (delta)
+        :param loader:
         :return:
         """
 
-        arch_a_output = self.model(loader)
-        arch_b_output = arch_b.model(loader)
+        # Set the model to evaluation mode
+        self.model.eval()
 
-        dist = torch.norm(arch_a_output, arch_b_output)
+        # Dictionary to store activations for each class
+        class_activations = {}
 
-        if dist < threshold:
-            self.interpretability_score = dist.item()
+        # Loop through the data loader
+        with torch.no_grad():
+            for inputs, targets in loader:
+                outputs = self.model(inputs)
+
+                # Convert targets and outputs to numpy arrays
+                targets_np = targets.numpy()
+                outputs_np = F.relu(outputs).numpy()  # Assuming ReLU activation
+
+                # Loop through each sample
+                for i in range(len(targets_np)):
+                    target_class = targets_np[i]
+
+                    # If the class is not in the dictionary, create an empty list
+                    if target_class not in class_activations:
+                        class_activations[target_class] = []
+
+                    # Append the activations to the corresponding class list
+                    class_activations[target_class].append(outputs_np[i])
+
+        # Calculate mean activations for each class
+        mean_activations = {cls: np.mean(np.array(acts), axis=0) for cls, acts in class_activations.items()}
+
+        # Calculate introspectability using cosine distance
+        introspectability = 0.0
+        num_classes = len(mean_activations)
+
+        for cls1 in mean_activations:
+            for cls2 in mean_activations:
+                if cls1 < cls2:
+                    # Cosine distance between mean activations of two classes
+                    cosine_distance = F.cosine_similarity(
+                        torch.FloatTensor(mean_activations[cls1]),
+                        torch.FloatTensor(mean_activations[cls2]),
+                        dim=0
+                    ).item()
+
+                    introspectability += cosine_distance
+
+        # Normalize by the number of unique class pairs
+        introspectability /= num_classes * (num_classes - 1) / 2
+
+        return introspectability
+
+
+    def energy_metric(self):
+        ...
 
     def accuracy(self, outputs, labels):
         """
@@ -114,6 +169,13 @@ class NeuralArchitecture:
                 acc += self.accuracy(outputs, targets) * len(targets)
                 n_samples += len(targets)
 
+        interpretability = self.introspectability_metric(loader)
+        energy = ...
+
+        self.objectives['accuracy'] = acc / n_samples
+        self.objectives['interpretability'] = interpretability
+        self.objectives['energy'] = energy
+
         return loss / n_samples, acc / n_samples
 
     def train(self, loader, epochs=8, lr=0.001):
@@ -145,78 +207,3 @@ class NeuralArchitecture:
                 n_samples += len(targets)
 
         return train_loss / n_samples, train_acc / n_samples
-
-
-def initialize_cand_pool(population_size, input_size, hidden_layers, hidden_size, output_size, val_loader):
-    """
-
-    :param population_size:
-    :param input_size:
-    :param hidden_layers:
-    :param hidden_size:
-    :param output_size:
-    :param val_loader:
-    :return:
-    """
-    cand_pool = []
-    # init_arch = NeuralNetwork(input_size, hidden_sizes, output_size, activation=nn.ReLU())
-
-    for _ in range(population_size):
-        architecture = NeuralArchitecture.random_initialization(input_size, hidden_layers, hidden_size, output_size)
-        _, accuracy = architecture.evaluate(val_loader)
-        # get interpretability
-        architecture.validation_score = accuracy
-
-        cand_pool.append(architecture)
-
-    return cand_pool
-
-
-def tournament_selection(population, tournament_size):
-    """
-
-    :param population:
-    :param tournament_size:
-    :return:
-    """
-
-    # select s parent models from population P
-    selected_parents = random.sample(population, tournament_size)
-
-    # determine two parents w/ best fitness vals
-    parent_a = max(selected_parents, key=lambda x: x.validation_score)
-    selected_parents.remove(parent_a)
-    parent_b = max(selected_parents, key=lambda x: x.validation_score)
-
-    return parent_a, parent_b
-
-
-def crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture):
-    """
-
-    :param parent1:
-    :param parent2:
-    :return:
-    """
-    # Randomly choose a crossover point based on the number of hidden layers
-    crossover_point = random.randint(1, min(len(parent1.hidden_sizes), len(parent2.hidden_sizes)) - 1)
-    offspring_hidden_sizes = (
-            parent1.hidden_sizes[:crossover_point] + parent2.hidden_sizes[crossover_point:]
-    )
-
-    offspring = NeuralArchitecture(
-        parent1.input_size,
-        offspring_hidden_sizes,
-        parent1.output_size,
-        parent1.activation
-    )
-
-    return offspring
-
-
-def remove_lowest_scoring(population):
-    """
-
-    :param population:
-    :return:
-    """
