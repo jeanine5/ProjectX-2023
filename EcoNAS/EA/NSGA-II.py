@@ -5,8 +5,6 @@ from GA_functions import *
 
 import numpy as np
 
-import pygmo.fast_non_dominated_sorting
-
 
 class NSGA_II:
     def __init__(self, population_size, generations, crossover_factor, mutation_factor):

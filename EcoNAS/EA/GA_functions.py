@@ -92,7 +92,7 @@ def crowding_distance_assignment(pop_by_obj, front: list):
     """
 
     :param pop_by_obj:
-    :param fronts:
+    :param front:
     :return:
     """
     num_objectives = pop_by_obj.shape[1]
