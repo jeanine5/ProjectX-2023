@@ -10,8 +10,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import pymoo
-from pymoo.optimize import minimize
 
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -55,25 +53,7 @@ class NeuralArchitecture:
             'interpretability': 0.0,
             'energy': 0.0
         }
-        self.rank = None
-        self.sp = set()
-
-
-    @classmethod
-    def random_initialization(cls, input_size, max_hidden_layers, max_hidden_size, output_size):
-        """
-
-        :param input_size:
-        :param max_hidden_layers:
-        :param max_hidden_size:
-        :param output_size:
-        :return:
-        """
-        num_hidden_layers = random.randint(1, max_hidden_layers)
-        hidden_sizes = [random.randint(1, max_hidden_size) for _ in range(num_hidden_layers)]
-        activation = nn.ReLU()
-
-        return cls(input_size, hidden_sizes, output_size, activation)
+        self.nondominated_rank = 0
 
     def introspectability_metric(self, loader):
         """
@@ -131,7 +111,6 @@ class NeuralArchitecture:
         introspectability /= num_classes * (num_classes - 1) / 2
 
         return introspectability
-
 
     def energy_metric(self):
         ...
@@ -207,3 +186,10 @@ class NeuralArchitecture:
                 n_samples += len(targets)
 
         return train_loss / n_samples, train_acc / n_samples
+
+    def clone(self):
+        """
+
+        :return:
+        """
+        return NeuralArchitecture(self.input_size, self.hidden_sizes.copy(), self.output_size, self.activation)

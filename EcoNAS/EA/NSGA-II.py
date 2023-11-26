@@ -1,79 +1,41 @@
-"""
-This contains the code for the multi and single objective optimization functions
-"""
-
 import random
 
 from Architectures import *
+from GA_functions import *
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
+import numpy as np
 
-
-
-def is_pareto_dominant(p, q):
-    """
-
-    :param p:
-    :param q:
-    :return:
-    """
-
-    return all(pi < qi for pi, qi in zip(p.objectives, q.objectives))
-
-
-def fast_non_dominating_sort(population: list[NeuralArchitecture]):
-    """
-
-    :param population:
-    :return:
-    """
-
-    fronts = []
-    dom_count = {p: 0 for p in population}
-    dom_set = {p: set() for p in population}
-
-    for p in population:
-        p.sp = set()
-        p.np = 0
-        for q in population:
-            if is_pareto_dominant(p, q):
-                p.sp.add(q)
-            elif is_pareto_dominant(q, p):
-                p.np += 1
-                dom_set[q].add(p)
-
-        if p.np == 0:
-            p.rank = 1
-            fronts.append([p])
-
-    i = 1
-    while fronts[i - 1]:
-        next_front = []
-        for p in fronts[i - 1]:
-            for q in p.sp:
-                dom_count[q] -= 1
-                if dom_count[q] == 0:
-                    q.rank = i + 1
-                    next_front.append(q)
-
-        i += 1
-        fronts.append(next_front)
-
-    return fronts
+import pygmo.fast_non_dominated_sorting
 
 
 class NSGA_II:
     def __init__(self, population_size, generations, crossover_factor, mutation_factor):
         self.population_size = population_size
         self.generations = generations
-        self. crossover_factor = crossover_factor
+        self.crossover_factor = crossover_factor
         self.mutation_factor = mutation_factor
 
-    def evolve(self, population, input_size, hidden_layers, hidden_size, output_size, val_loader):
+    def initial_population(self, input_size, hidden_layers, hidden_size, output_size):
+        """
+
+        :param input_size:
+        :param hidden_layers:
+        :param hidden_size:
+        :param output_size:
+        :return:
+        """
+        archs = []
+        for _ in range(self.population_size):
+            num_hidden_layers = random.randint(1, hidden_layers)
+            hidden_sizes = [random.randint(1, hidden_size) for _ in range(num_hidden_layers)]
+            activation = nn.ReLU()
+            arch = NeuralArchitecture(input_size, hidden_sizes, output_size, activation)
+
+            archs.append(arch)
+
+        return archs
+
+    def evolve(self, input_size, hidden_layers, hidden_size, output_size, val_loader):
         """
 
         :param population:
@@ -85,70 +47,38 @@ class NSGA_II:
         :return:
         """
 
+        # step 1: generate initial population
+        archs = self.initial_population(input_size, hidden_layers, hidden_size, output_size)
+
+        # step 2 : evaluate the objective functions for each arch
+        for a in archs:
+            a.evaluate(val_loader)
+
+        # step 3: set the non-dominated ranks for the population and sort the architectures by rank
+        set_non_dominated(archs)  # fitness vals
+        archs.sort(key=lambda arch: arch.nondominated_rank)
+
+        # step 4: create an offspring population Q0 of size N
+        offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor)
+        set_non_dominated(offspring_pop)
+
+        # step 5: start algorithm's counter
         for generation in range(self.generations):
-            archs = []
-            # step 1: generate initial population
-            for _ in range(self.population_size):
-                num_hidden_layers = random.randint(1, hidden_layers)
-                hidden_sizes = [random.randint(1, hidden_size) for _ in range(num_hidden_layers)]
-                activation = nn.ReLU()
-                arch = NeuralArchitecture(input_size, hidden_sizes, output_size, activation)
+            # next step...
+            # step 6: combine parent and offspring population
+            combined_population = archs + offspring_pop
 
-                arch.evaluate(val_loader)  # step 2: evalute the objective function values
+            population_by_objectives = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'],
+                                                  ind.objectives['energy']] for ind in combined_population])
 
-                archs.append(arch)
+            # step 7:
+            non_dom_fronts, dom_list, dom_count, non_dom_ranks = fast_non_dominating_sort(population_by_objectives)
 
+            # step 8: initialize new parent list and non-dominated front counter
+            new_parents, i = [], 0
 
-
-
-            # crowd distance assignment
-
-
-def tournament_selection(population, tournament_size):
-    """
-
-    :param population:
-    :param tournament_size:
-    :return:
-    """
-
-    # select s parent models from population P
-    selected_parents = random.sample(population, tournament_size)
-
-    # determine two parents w/ best fitness vals
-    parent_a = max(selected_parents, key=lambda x: x.validation_score)
-    selected_parents.remove(parent_a)
-    parent_b = max(selected_parents, key=lambda x: x.validation_score)
-
-    return parent_a, parent_b
-
-
-def crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture):
-    """
-
-    :param parent1:
-    :param parent2:
-    :return:
-    """
-    # Randomly choose a crossover point based on the number of hidden layers
-    crossover_point = random.randint(1, min(len(parent1.hidden_sizes), len(parent2.hidden_sizes)) - 1)
-    offspring_hidden_sizes = (
-            parent1.hidden_sizes[:crossover_point] + parent2.hidden_sizes[crossover_point:]
-    )
-
-    offspring = NeuralArchitecture(
-        parent1.input_size,
-        offspring_hidden_sizes,
-        parent1.output_size,
-        parent1.activation
-    )
-
-    return offspring
-
-
-def remove_lowest_scoring(population):
-    """
-
-    :param population:
-    :return:
-    """
+            # step 9: calculate crowding-distance in Fi until the parent population is filled
+            while len(new_parents) + len(non_dom_fronts[i]) <= len(combined_population) // 2:
+                crowding_distance_assignment(population_by_objectives, non_dom_fronts[i])
+                new_parents += non_dom_fronts[i]
+                i += 1
