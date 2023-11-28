@@ -1,10 +1,10 @@
 """
 This contains the code for the multi and single objective optimization functions
 """
-
+import functools
 import random
 
-from Architectures import *
+from EcoNAS.EA.Architectures import *
 
 import numpy as np
 
@@ -21,11 +21,15 @@ def set_non_dominated(population: list[NeuralArchitecture]):
     :param population:
     :return:
     """
+
+    pbo = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'],
+                                          ind.objectives['energy']] for ind in population])
+
     for i in range(len(population)):
         non_dom_count = 1
         for j in range(len(population)):
             if i != j:
-                dominates = is_pareto_dominant(population[i].objectives, population[j].objectives)
+                dominates = is_pareto_dominant(pbo[i], pbo[j])
                 if not dominates:
                     non_dom_count += 1
         population[i].nondominated_rank = non_dom_count
@@ -40,9 +44,7 @@ def is_pareto_dominant(p, q):
     """
     larger_or_equal = p >= q
     strict_dom = p > q
-    if np.all(larger_or_equal) and np.any(strict_dom):
-        return True
-    return False
+    return np.all(larger_or_equal) and np.any(strict_dom)
 
 
 def fast_non_dominating_sort(population):
@@ -52,40 +54,35 @@ def fast_non_dominating_sort(population):
     :return:
     """
 
+    domination_sets = []
+    domination_counts = []
+    for fitnesses_1 in population:
+        current_dimination_set = set()
+        domination_counts.append(0)
+        for i, fitnesses_2 in enumerate(population):
+            if is_pareto_dominant(fitnesses_1, fitnesses_2):
+                current_dimination_set.add(i)
+            elif is_pareto_dominant(fitnesses_2, fitnesses_1):
+                domination_counts[-1] += 1
+
+        domination_sets.append(current_dimination_set)
+
+    domination_counts = np.array(domination_counts)
     fronts = []
-    dom_count = np.zeros(len(population), dtype=int)
-    dom_set = [set() for _ in range(len(population))]
+    while True:
+        current_front = np.where(domination_counts == 0)[0]
+        if len(current_front) == 0:
+            break
+        fronts.append(current_front)
 
-    for i, p in enumerate(population):
-        for j, q in enumerate(population):
-            if i != j:
-                if is_pareto_dominant(p, q):
-                    dom_set[i].add(j)
-                elif is_pareto_dominant(q, p):
-                    dom_count[i] += 1
+        for individual in current_front:
+            domination_counts[
+                individual] = -1
+            dominated_by_current_set = domination_sets[individual]
+            for dominated_by_current in dominated_by_current_set:
+                domination_counts[dominated_by_current] -= 1
 
-    ndf = []
-    dl = []
-    dc = dom_count.copy()
-    ndr = np.zeros(len(population), dtype=int)
-
-    while np.any(dc == 0):
-        curr_front = np.where(dc == 0)[0]
-        fronts.append(curr_front)
-
-        for s in curr_front:
-            dc[s] = -1
-            dom_by_curr_set = dom_set[s]
-            for dominated_by_current in dom_by_curr_set:
-                dc[dominated_by_current] -= 1
-
-    for i, front in enumerate(fronts):
-        for s in front:
-            ndf.append(np.array([s], dtype=int))
-            dl.append(front)
-            ndr[s] = i + 1
-
-    return np.array(ndf), np.array(dl), dc, ndr
+    return fronts
 
 
 def crowding_distance_assignment(pop_by_obj, front: list):
@@ -109,17 +106,59 @@ def crowding_distance_assignment(pop_by_obj, front: list):
     crowding_metrics = np.zeros(num_individuals)
 
     for objective_i in range(num_objectives):
-
         sorted_front = sorted(front, key=lambda x: pop_by_obj[x, objective_i])
 
         crowding_metrics[sorted_front[0]] = np.inf
         crowding_metrics[sorted_front[-1]] = np.inf
+
         if len(sorted_front) > 2:
             for i in range(2, len(sorted_front) - 1):
                 crowding_metrics[sorted_front[i]] += pop_by_obj[sorted_front[i + 1], objective_i] - pop_by_obj[
                     sorted_front[i - 1], objective_i]
 
     return crowding_metrics
+
+
+def fronts_to_nondomination_rank(fronts):
+    """
+
+    :param fronts:
+    :return:
+    """
+    nondomination_rank_dict = {}
+    for i, front in enumerate(fronts):
+        for x in front:
+            nondomination_rank_dict[x] = i
+    return nondomination_rank_dict
+
+
+def nondominated_sort(nondomination_rank_dict, crowding):
+    """
+
+    :param nondomination_rank_dict:
+    :param crowding:
+    :return:
+    """
+    num_individuals = len(crowding)
+    indicies = list(range(num_individuals))
+
+    def nondominated_compare(a, b):
+
+        if nondomination_rank_dict[a] > nondomination_rank_dict[b]:  # domination rank, smaller better
+            return -1
+        elif nondomination_rank_dict[a] < nondomination_rank_dict[b]:
+            return 1
+        else:
+            if crowding[a] < crowding[b]:  # crowding metrics, larger better
+                return -1
+            elif crowding[a] > crowding[b]:
+                return 1
+            else:
+                return 0
+
+    non_dominated_sorted_indices = sorted(indicies, key=functools.cmp_to_key(nondominated_compare),
+                                          reverse=True)  # decreasing order, the best is the first
+    return non_dominated_sorted_indices
 
 
 def binary_tournament_selection(population, tournament_size=2):
@@ -130,7 +169,7 @@ def binary_tournament_selection(population, tournament_size=2):
     :return:
     """
 
-    # select s parent models from population P
+    # select 2 parent models from population P
     selected_parents = random.sample(population, tournament_size)
 
     # determine two parents w/ best fitness val
@@ -159,16 +198,13 @@ def one_point_crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture
     :return:
     """
     # Randomly choose a crossover point based on the number of hidden layers
-    crossover_point = random.randint(1, min(len(parent1.hidden_sizes), len(parent2.hidden_sizes)) - 1)
+    crossover_point = random.randint(1, min(len(parent1.hidden_sizes), len(parent2.hidden_sizes)))
     offspring_hidden_sizes = (
             parent1.hidden_sizes[:crossover_point] + parent2.hidden_sizes[crossover_point:]
     )
 
     offspring = NeuralArchitecture(
-        parent1.input_size,
-        offspring_hidden_sizes,
-        parent1.output_size,
-        parent1.activation
+        offspring_hidden_sizes
     )
 
     return offspring
@@ -181,18 +217,23 @@ def two_point_crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture
     :param parent2:
     :return:
     """
-    # Randomly choose a crossover point based on the number of hidden layers
-    crossover_points = sorted(random.sample(range(1, len(parent1.hidden_sizes)), 2))
+    len_parent1 = len(parent1.hidden_sizes)
+    len_parent2 = len(parent2.hidden_sizes)
+
+    if len_parent1 <= 2 or len_parent2 <= 2:
+        return parent1 if len_parent1 > 0 else parent2
+
+    # randomly choose a crossover point based on the number of hidden layers
+    crossover_points = sorted(random.sample(range(1, min(len_parent1, len_parent2)), 2))
 
     child_hidden_sizes = (
-            parent1.hidden_sizes[:crossover_points[0]] + parent2.hidden_sizes[crossover_points[0]:crossover_points[1]] +
+            parent1.hidden_sizes[:crossover_points[0]] +
+            parent2.hidden_sizes[crossover_points[0]:crossover_points[1]] +
             parent1.hidden_sizes[crossover_points[1]:]
     )
+
     offspring = NeuralArchitecture(
-        parent1.input_size,
-        child_hidden_sizes,
-        parent1.output_size,
-        parent1.activation
+        child_hidden_sizes
     )
 
     return offspring
@@ -213,20 +254,20 @@ def mutate(offspring: NeuralArchitecture, mutation_factor):
     return mutated_offspring
 
 
-def mutate_random_hidden_sizes(architecture):
+def mutate_random_hidden_sizes(architecture: NeuralArchitecture):
     """
 
     :param architecture:
     :return:
     """
     mutated_architecture = architecture.clone()
-    max_hidden_size = mutated_architecture.hidden_sizes
+    max_hidden_size = max(mutated_architecture.hidden_sizes)
     for i in range(len(mutated_architecture.hidden_sizes)):
         mutated_architecture.hidden_sizes[i] = random.randint(1, max_hidden_size)
     return mutated_architecture
 
 
-def mutate_add_remove_hidden_layer(architecture):
+def mutate_add_remove_hidden_layer(architecture: NeuralArchitecture):
     """
 
     :param architecture:
@@ -237,7 +278,7 @@ def mutate_add_remove_hidden_layer(architecture):
         index_to_remove = random.randint(0, len(mutated_architecture.hidden_sizes) - 1)
         del mutated_architecture.hidden_sizes[index_to_remove]
     else:
-        mutated_architecture.hidden_sizes.append(random.randint(1, mutated_architecture.max_hidden_size))
+        mutated_architecture.hidden_sizes.append(random.randint(1, max(mutated_architecture.hidden_sizes)))
     return mutated_architecture
 
 

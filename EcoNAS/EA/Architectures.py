@@ -1,8 +1,6 @@
 """
 This contains the code for the Evolutionary Search algorithms used for our Artificial Neural Networks
 """
-import math
-import random
 
 import numpy as np
 
@@ -10,27 +8,33 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from thop import profile
+
+import torchstat
+
+from torchvision.datasets import MNIST
+import torchvision.transforms as transforms
 
 from torch.utils.data import DataLoader, TensorDataset
 
 
 class NeuralNetwork(nn.Module):
-    def __init__(self, input_size, hidden_sizes, output_size, activation):
-        super(NeuralNetwork, self).__init__()
-        self.input_size = input_size
+    def __init__(self, hidden_sizes):
+        super().__init__()
 
+        input_size = 784
         self.hidden_layers = nn.ModuleList()
         for hidden_size in hidden_sizes:
             hidden_layer = nn.Linear(input_size, hidden_size)
             self.hidden_layers.append(hidden_layer)
-            self.input_size = hidden_size
+            input_size = hidden_size
 
-        self.output_layer = nn.Linear(hidden_sizes, output_size)
-        self.activation = activation
+        self.output_layer = nn.Linear(input_size, 10)
+        self.activation = nn.ReLU()
 
     def forward(self, x):
         batch_size = len(x)
-        x = x.view(batch_size, self.input_size)
+        x = x.view(batch_size, 784)
 
         for layer in self.hidden_layers:
             h = layer(x)
@@ -42,12 +46,10 @@ class NeuralNetwork(nn.Module):
 
 
 class NeuralArchitecture:
-    def __init__(self, input_size, hidden_sizes, output_size, activation):
-        self.model = NeuralNetwork(input_size, hidden_sizes, output_size, activation)
-        self.input_size = input_size
+    def __init__(self, hidden_sizes):
+        self.model = NeuralNetwork(hidden_sizes)
         self.hidden_sizes = hidden_sizes
-        self.output_size = output_size
-        self.activation = activation
+        self.activation = nn.ReLU()
         self.objectives = {
             'accuracy': 0.0,
             'interpretability': 0.0,
@@ -62,43 +64,37 @@ class NeuralArchitecture:
         :return:
         """
 
-        # Set the model to evaluation mode
         self.model.eval()
 
-        # Dictionary to store activations for each class
         class_activations = {}
 
-        # Loop through the data loader
         with torch.no_grad():
             for inputs, targets in loader:
                 outputs = self.model(inputs)
 
-                # Convert targets and outputs to numpy arrays
+                # convert targets and outputs to numpy arrays
                 targets_np = targets.numpy()
                 outputs_np = F.relu(outputs).numpy()  # Assuming ReLU activation
 
-                # Loop through each sample
                 for i in range(len(targets_np)):
                     target_class = targets_np[i]
 
-                    # If the class is not in the dictionary, create an empty list
                     if target_class not in class_activations:
                         class_activations[target_class] = []
 
-                    # Append the activations to the corresponding class list
                     class_activations[target_class].append(outputs_np[i])
 
-        # Calculate mean activations for each class
+        # calculate mean activations for each class
         mean_activations = {cls: np.mean(np.array(acts), axis=0) for cls, acts in class_activations.items()}
 
-        # Calculate introspectability using cosine distance
+        # cosine distance
         introspectability = 0.0
         num_classes = len(mean_activations)
 
         for cls1 in mean_activations:
             for cls2 in mean_activations:
                 if cls1 < cls2:
-                    # Cosine distance between mean activations of two classes
+                    # cosine distance between mean activations of two classes
                     cosine_distance = F.cosine_similarity(
                         torch.FloatTensor(mean_activations[cls1]),
                         torch.FloatTensor(mean_activations[cls2]),
@@ -107,13 +103,39 @@ class NeuralArchitecture:
 
                     introspectability += cosine_distance
 
-        # Normalize by the number of unique class pairs
+        # normalize by the number of unique class pairs
         introspectability /= num_classes * (num_classes - 1) / 2
 
         return introspectability
 
-    def energy_metric(self):
-        ...
+    def flops_estimation(self, input_size=(1, 1, 28, 28)):
+        """
+
+        :param input_size:
+        :return:
+        """
+
+        self.model.eval()
+
+        # Create dummy input tensor
+        dummy_input = torch.randn(input_size)
+
+        # Use thop.profile to compute FLOPs
+        flops, params = profile(self.model, inputs=(dummy_input,))
+
+        return flops
+
+    def evaluate_interpretability(self, loader):
+        """
+
+        :param loader:
+        :return:
+        """
+
+        interpretability = self.introspectability_metric(loader)
+        self.objectives['interpretability'] = interpretability
+
+        return interpretability
 
     def accuracy(self, outputs, labels):
         """
@@ -126,7 +148,7 @@ class NeuralArchitecture:
         correct = torch.sum(labels == predictions).item()
         return correct / len(labels)
 
-    def evaluate(self, loader):
+    def evaluate_accuracy(self, loader):
         """
 
         :param loader:
@@ -148,42 +170,35 @@ class NeuralArchitecture:
                 acc += self.accuracy(outputs, targets) * len(targets)
                 n_samples += len(targets)
 
-        interpretability = self.introspectability_metric(loader)
-        energy = ...
-
         self.objectives['accuracy'] = acc / n_samples
-        self.objectives['interpretability'] = interpretability
-        self.objectives['energy'] = energy
 
         return loss / n_samples, acc / n_samples
 
-    def train(self, loader, epochs=8, lr=0.001):
+    def train(self, loader, optimizer):
         """
 
         :param loader:
-        :param epochs:
+        :param optimizer:
         :param lr:
         :return:
         """
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
         train_loss = 0
         train_acc = 0
         n_samples = 0
 
-        for epoch in range(epochs):
-            self.model.train()
-            for inputs, targets in loader:
-                optimizer.zero_grad()
-                outputs = self.model(inputs)
-                loss = criterion(outputs, targets)
-                loss.backward()
-                optimizer.step()
+        self.model.train()
+        for inputs, targets in loader:
+            optimizer.zero_grad()
+            outputs = self.model(inputs)
+            loss = criterion(outputs, targets)
+            loss.backward()
+            optimizer.step()
 
-                train_loss += loss.detach().item() * len(targets)
-                train_acc += self.accuracy(outputs, targets) * len(targets)
-                n_samples += len(targets)
+            train_loss += loss.detach().item() * len(targets)
+            train_acc += self.accuracy(outputs, targets) * len(targets)
+            n_samples += len(targets)
 
         return train_loss / n_samples, train_acc / n_samples
 
@@ -192,4 +207,4 @@ class NeuralArchitecture:
 
         :return:
         """
-        return NeuralArchitecture(self.input_size, self.hidden_sizes.copy(), self.output_size, self.activation)
+        return NeuralArchitecture(self.hidden_sizes.copy())
