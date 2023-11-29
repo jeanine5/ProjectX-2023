@@ -123,6 +123,8 @@ class NeuralArchitecture:
         # Use thop.profile to compute FLOPs
         flops, params = profile(self.model, inputs=(dummy_input,))
 
+        self.objectives['energy'] = flops
+
         return flops
 
     def evaluate_interpretability(self, loader):
@@ -174,7 +176,18 @@ class NeuralArchitecture:
 
         return loss / n_samples, acc / n_samples
 
-    def train(self, loader, optimizer):
+    def evaluate_all_objectives(self, loader):
+        """
+
+        :param loader:
+        :return:
+        """
+
+        self.evaluate_accuracy(loader)
+        self.evaluate_interpretability(loader)
+        self.flops_estimation()
+
+    def train(self, loader):
         """
 
         :param loader:
@@ -183,6 +196,8 @@ class NeuralArchitecture:
         :return:
         """
         criterion = nn.CrossEntropyLoss()
+        lr = 1e-4  # The learning rate is a hyperparameter
+        optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
         train_loss = 0
         train_acc = 0

@@ -15,6 +15,36 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
 
+def get_corr_archs(front, architectures):
+    """
+
+    :param front:
+    :param architectures:
+    :return:
+    """
+    corr_archs = []
+    front_size = np.size(front)
+    for idx in front:
+        corr_archs.append(architectures[idx])
+
+    return corr_archs
+
+
+def crowded_comparison_operator(ind1, ind2):
+    """
+
+    :param ind1:
+    :param ind2:
+    :return:
+    """
+    if ind1.nondominated_rank < ind2.nondominated_rank:
+        return True
+    elif ind1.nondominated_rank == ind2.nondominated_rank and ind1.crowding_distance > ind2.crowding_distance:
+        return True
+    else:
+        return False
+
+
 def set_non_dominated(population: list[NeuralArchitecture]):
     """
 
@@ -23,7 +53,7 @@ def set_non_dominated(population: list[NeuralArchitecture]):
     """
 
     pbo = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'],
-                                          ind.objectives['energy']] for ind in population])
+                     ind.objectives['energy']] for ind in population])
 
     for i in range(len(population)):
         non_dom_count = 1
@@ -125,11 +155,11 @@ def fronts_to_nondomination_rank(fronts):
     :param fronts:
     :return:
     """
-    nondomination_rank_dict = {}
+    non_domination_rank_dict = {}
     for i, front in enumerate(fronts):
         for x in front:
-            nondomination_rank_dict[x] = i
-    return nondomination_rank_dict
+            non_domination_rank_dict[x] = i
+    return non_domination_rank_dict
 
 
 def nondominated_sort(nondomination_rank_dict, crowding):
@@ -282,12 +312,14 @@ def mutate_add_remove_hidden_layer(architecture: NeuralArchitecture):
     return mutated_architecture
 
 
-def generate_offspring(population, crossover_rate, mutation_rate):
+def generate_offspring(population, crossover_rate, mutation_rate, train_loader, test_loader):
     """
 
     :param population:
     :param crossover_rate:
-    :param mutation_rate:
+    :param mutation_rate::
+    :param train_loader:
+    :param test_loader:
     :return:
     """
     offspring_pop = []
@@ -299,6 +331,9 @@ def generate_offspring(population, crossover_rate, mutation_rate):
         offspring = crossover(parent_1, parent_2, crossover_rate)
 
         mutated_offspring = mutate(offspring, mutation_rate)
+
+        mutated_offspring.train(train_loader)
+        mutated_offspring.evaluate_all_objectives(test_loader)
 
         offspring_pop.append(mutated_offspring)
 

@@ -2,6 +2,8 @@ import random
 
 from EcoNAS.EA.GA_functions import *
 
+import functools
+
 import numpy as np
 
 
@@ -42,11 +44,10 @@ class NSGA_II:
 
         # step 1: generate initial population
         archs = self.initial_population(hidden_layers, hidden_size)
-        N = len(archs)
 
         # step 2 : evaluate the objective functions for each arch
         for a in archs:
-            a.train(train_loader, optimizer)
+            a.train(train_loader)
             a.evaluate_accuracy(test_loader)
 
         # step 3: set the non-dominated ranks for the population and sort the architectures by rank
@@ -54,7 +55,8 @@ class NSGA_II:
         archs.sort(key=lambda arch: arch.nondominated_rank)
 
         # step 4: create an offspring population Q0 of size N
-        offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor)
+        offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, train_loader,
+                                           test_loader)
         set_non_dominated(offspring_pop)
 
         # step 5: start algorithm's counter
@@ -68,24 +70,22 @@ class NSGA_II:
             # step 7:
             non_dom_fronts = fast_non_dominating_sort(population_by_objectives)
 
-            non_domination_rank_dict = fronts_to_nondomination_rank(non_dom_fronts)
-
             # step 8: initialize new parent list and non-dominated front counter
             archs, i = [], 0
 
             # step 9: calculate crowding-distance in Fi until the parent population is filled
-            while len(archs) + len(non_dom_fronts[i]) <= N:
+            while len(archs) + len(non_dom_fronts[i]) <= self.population_size:
                 crowding_distance_assignment(population_by_objectives, non_dom_fronts[i])
-                archs += non_dom_fronts[i]
+                archs += get_corr_archs(non_dom_fronts[i], combined_population)
                 i += 1
 
             # step 8: sort front by crowding comparison operator
-            sorted_indicies = nondominated_sort(non_domination_rank_dict, crowding_metrics)
-            last_front = non_dom_fronts[i]
-            #TO-DO
+            last_front_archs = get_corr_archs(non_dom_fronts[i], combined_population)
+            last_front_archs.sort(key=functools.cmp_to_key(crowded_comparison_operator), reverse=True)
 
             # step 9: set new parent population
-            archs = archs + non_dom_fronts[i][1: N - len(archs)]
+            archs = archs + last_front_archs[1: self.population_size - len(archs)]
 
             # step 10: generate new offspring population
-            offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor)
+            offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, train_loader,
+                                               test_loader)
