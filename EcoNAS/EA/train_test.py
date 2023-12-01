@@ -30,7 +30,7 @@ nsga = NSGA_II(100, 12, 0.5, 0.5)
 architectures = nsga.evolve(10, 200, train_loader, test_loader)
 
 for arch in architectures:
-    train_loss, train_acc = arch.train(train_loader)
+    train_loss, train_acc = arch.train(train_loader, 12)
     acc_loss, acc, interpretable, flops = arch.evaluate_all_objectives(test_loader)
     print(f'Train Accuracy: {train_acc}, Test Accuracy: {acc}, Energy: {flops}')
     print(f'Interpretability: {interpretable}')

@@ -190,12 +190,11 @@ class NeuralArchitecture:
 
         return acc_loss, acc, interpretable, flops
 
-    def train(self, loader):
+    def train(self, loader, epochs):
         """
 
+        :param epochs:
         :param loader:
-        :param optimizer:
-        :param lr:
         :return:
         """
         criterion = nn.CrossEntropyLoss()
@@ -204,21 +203,28 @@ class NeuralArchitecture:
 
         train_loss = 0
         train_acc = 0
+
+        train_losses = []
+        train_accuracies = []
         n_samples = 0
 
-        self.model.train()
-        for inputs, targets in loader:
-            optimizer.zero_grad()
-            outputs = self.model(inputs)
-            loss = criterion(outputs, targets)
-            loss.backward()
-            optimizer.step()
+        for epoch in range(epochs):
+            self.model.train()
+            for inputs, targets in loader:
+                optimizer.zero_grad()
+                outputs = self.model(inputs)
+                loss = criterion(outputs, targets)
+                loss.backward()
+                optimizer.step()
 
-            train_loss += loss.detach().item() * len(targets)
-            train_acc += self.accuracy(outputs, targets) * len(targets)
-            n_samples += len(targets)
+                train_loss += loss.detach().item() * len(targets)
+                train_acc += self.accuracy(outputs, targets) * len(targets)
+                n_samples += len(targets)
 
-        return train_loss / n_samples, train_acc / n_samples
+                train_losses.append(train_loss / n_samples)
+                train_accuracies.append(train_acc / n_samples)
+
+        return train_losses[-1], train_accuracies[-1]
 
     def clone(self):
         """

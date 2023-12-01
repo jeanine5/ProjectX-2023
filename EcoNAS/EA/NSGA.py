@@ -47,7 +47,7 @@ class NSGA_II:
 
         # step 2 : evaluate the objective functions for each arch
         for a in archs:
-            a.train(train_loader)
+            a.train(train_loader, 1)
             a.evaluate_accuracy(test_loader)
 
         # step 3: set the non-dominated ranks for the population and sort the architectures by rank
@@ -79,7 +79,7 @@ class NSGA_II:
                 # calculated crowding-distance
                 crowding_metric = crowding_distance_assignment(population_by_objectives, non_dom_fronts[i])
                 for j in range(len(corresponding_archs)):
-                    corresponding_archs[j].train(train_loader)
+                    corresponding_archs[j].train(train_loader, 8)
                     corresponding_archs[j].evaluate_all_objectives(test_loader)
                     corresponding_archs[j].crowding_distance = crowding_metric[j]
                 archs += corresponding_archs
