@@ -27,11 +27,9 @@ train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=
 
 test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
 
-
 nsga = NSGA_II(15, 3, 0.5, 0.5)
 
 archs = nsga.initial_population(2, 200)
-
 
 for a in archs:
     flops = a.flops_estimation()
@@ -48,7 +46,7 @@ offspring_pop = generate_offspring(archs, 0.5, 0.5, train_loader, test_loader)
 combined_population = archs + offspring_pop
 
 population_by_objectives = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'],
-                                                  ind.objectives['energy']] for ind in combined_population])
+                                      ind.objectives['energy']] for ind in combined_population])
 
 print(f'obj: {population_by_objectives}')
 
@@ -59,9 +57,15 @@ print(f'best front: {np.size(non_dom_fronts[0])}')
 non_domination_rank_dict = fronts_to_nondomination_rank(non_dom_fronts)
 print(f'Non-dominating fronts rank dict: {non_domination_rank_dict}')
 
-keys = []
+archs, i = [], 0
 
-for key in non_domination_rank_dict:
-    keys.append(key)
-print(f'values: {keys}')
-
+# step 9: calculate crowding-distance in Fi until the parent population is filled
+while len(archs) + len(non_dom_fronts[i]) <= nsga.population_size:
+    corresponding_archs = get_corr_archs(non_dom_fronts[i], combined_population)
+    # calculated crowding-distance
+    crowding_metric = crowding_distance_assignment(population_by_objectives, non_dom_fronts[i])
+    for j in range(len(corresponding_archs)):
+        corresponding_archs[j].crowding_distance = crowding_metric[j]
+    archs += corresponding_archs
+    print(f'Crowding metric: {crowding_metric}')
+    i += 1

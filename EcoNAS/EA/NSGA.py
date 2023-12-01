@@ -1,6 +1,7 @@
 import random
 
-from EcoNAS.EA.GA_functions import *
+from EcoNAS.EA.genetic_functions import *
+from EcoNAS.EA.pareto_functions import *
 
 import functools
 
@@ -31,12 +32,11 @@ class NSGA_II:
 
         return archs
 
-    def evolve(self, hidden_layers, hidden_size, optimizer, train_loader, test_loader):
+    def evolve(self, hidden_layers, hidden_size, train_loader, test_loader):
         """
 
         :param hidden_layers:
         :param hidden_size:
-        :param optimizer:
         :param train_loader:
         :param test_loader:
         :return:
@@ -75,8 +75,14 @@ class NSGA_II:
 
             # step 9: calculate crowding-distance in Fi until the parent population is filled
             while len(archs) + len(non_dom_fronts[i]) <= self.population_size:
-                crowding_distance_assignment(population_by_objectives, non_dom_fronts[i])
-                archs += get_corr_archs(non_dom_fronts[i], combined_population)
+                corresponding_archs = get_corr_archs(non_dom_fronts[i], combined_population)
+                # calculated crowding-distance
+                crowding_metric = crowding_distance_assignment(population_by_objectives, non_dom_fronts[i])
+                for j in range(len(corresponding_archs)):
+                    corresponding_archs[j].train(train_loader)
+                    corresponding_archs[j].evaluate_all_objectives(test_loader)
+                    corresponding_archs[j].crowding_distance = crowding_metric[j]
+                archs += corresponding_archs
                 i += 1
 
             # step 8: sort front by crowding comparison operator
@@ -89,3 +95,5 @@ class NSGA_II:
             # step 10: generate new offspring population
             offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, train_loader,
                                                test_loader)
+
+        return archs

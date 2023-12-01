@@ -56,6 +56,7 @@ class NeuralArchitecture:
             'energy': 0.0
         }
         self.nondominated_rank = 0
+        self.crowding_distance = 0.0
 
     def introspectability_metric(self, loader):
         """
@@ -183,9 +184,11 @@ class NeuralArchitecture:
         :return:
         """
 
-        self.evaluate_accuracy(loader)
-        self.evaluate_interpretability(loader)
-        self.flops_estimation()
+        acc_loss, acc = self.evaluate_accuracy(loader)
+        interpretable = self.evaluate_interpretability(loader)
+        flops = self.flops_estimation()
+
+        return acc_loss, acc, interpretable, flops
 
     def train(self, loader):
         """
