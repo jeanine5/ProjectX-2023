@@ -48,7 +48,7 @@ class NSGA_II:
         # step 2 : evaluate the objective functions for each arch
         for a in archs:
             a.train(train_loader, 1)
-            a.evaluate_accuracy(test_loader)
+            a.evaluate_all_objectives(test_loader)
 
         # step 3: set the non-dominated ranks for the population and sort the architectures by rank
         set_non_dominated(archs)  # fitness vals

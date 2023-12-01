@@ -25,14 +25,14 @@ train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=
 test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
 
 
-nsga = NSGA_II(100, 12, 0.5, 0.5)
+nsga = NSGA_II(8, 3, 0.5, 0.5)
 
 architectures = nsga.evolve(10, 200, train_loader, test_loader)
 
 for arch in architectures:
     train_loss, train_acc = arch.train(train_loader, 12)
     acc_loss, acc, interpretable, flops = arch.evaluate_all_objectives(test_loader)
-    print(f'Train Accuracy: {train_acc}, Test Accuracy: {acc}, Energy: {flops}')
+    print(f'Train Accuracy: {train_acc}, Test Accuracy: {acc}')
     print(f'Interpretability: {interpretable}')
     print(f'FLOPs: {flops}')
     print("")
