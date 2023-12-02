@@ -51,18 +51,18 @@ class NSGA_II:
             a.evaluate_all_objectives(test_loader)
 
         # step 3: set the non-dominated ranks for the population and sort the architectures by rank
-        set_non_dominated(archs)  # fitness vals
-        archs.sort(key=lambda arch: arch.nondominated_rank)
+        # set_non_dominated(archs)  # fitness vals
+        # archs.sort(key=lambda arch: arch.nondominated_rank)
 
         # step 4: create an offspring population Q0 of size N
         offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, train_loader,
                                            test_loader)
-        set_non_dominated(offspring_pop)
 
         # step 5: start algorithm's counter
         for generation in range(self.generations):
             # step 6: combine parent and offspring population
             combined_population = archs + offspring_pop  # of size 2N
+            set_non_dominated(combined_population)
 
             population_by_objectives = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'],
                                                   ind.objectives['energy']] for ind in combined_population])
@@ -79,7 +79,7 @@ class NSGA_II:
                 # calculated crowding-distance
                 crowding_metric = crowding_distance_assignment(population_by_objectives, non_dom_fronts[i])
                 for j in range(len(corresponding_archs)):
-                    corresponding_archs[j].train(train_loader, 8)
+                    corresponding_archs[j].train(train_loader, 5)
                     corresponding_archs[j].evaluate_all_objectives(test_loader)
                     corresponding_archs[j].crowding_distance = crowding_metric[j]
                 archs += corresponding_archs
@@ -95,5 +95,6 @@ class NSGA_II:
             # step 10: generate new offspring population
             offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, train_loader,
                                                test_loader)
+            set_non_dominated(offspring_pop)
 
         return archs

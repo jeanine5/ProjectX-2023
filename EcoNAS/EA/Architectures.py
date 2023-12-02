@@ -10,7 +10,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 from thop import profile
 
-import torchstat
 
 from torchvision.datasets import MNIST
 import torchvision.transforms as transforms

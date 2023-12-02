@@ -147,7 +147,7 @@ def generate_offspring(population, crossover_rate, mutation_rate, train_loader, 
 
         mutated_offspring = mutate(offspring, mutation_rate)
 
-        mutated_offspring.train(train_loader, 8)
+        mutated_offspring.train(train_loader, 5)
         mutated_offspring.evaluate_all_objectives(test_loader)
 
         offspring_pop.append(mutated_offspring)

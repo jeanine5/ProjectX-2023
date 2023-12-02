@@ -65,7 +65,7 @@ def is_pareto_dominant(p, q):
     :param q:
     :return:
     """
-    first_two_objectives_dominate = np.all(p[:2] <= q[:2]) and np.any(p[:2] < q[:2])
+    first_two_objectives_dominate = np.all(p[:2] >= q[:2]) and np.any(p[:2] > q[:2])
     third_objective_minimization = p[2] <= q[2]
 
     return first_two_objectives_dominate and third_objective_minimization
