@@ -3,8 +3,6 @@ Test the functionality of the genetic algorithm functions
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
-import functools
 
 from EcoNAS.EA.NSGA import *
 

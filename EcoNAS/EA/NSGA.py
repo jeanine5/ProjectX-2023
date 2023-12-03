@@ -23,9 +23,10 @@ class NSGA_II:
         :return:
         """
         archs = []
+        num_hidden_layers = random.randint(1, max_hidden_layers)
+        hidden_sizes = [random.randint(1, max_hidden_size) for _ in range(num_hidden_layers)]
+
         for _ in range(self.population_size):
-            num_hidden_layers = random.randint(1, max_hidden_layers)
-            hidden_sizes = [random.randint(1, max_hidden_size) for _ in range(num_hidden_layers)]
             arch = NeuralArchitecture(hidden_sizes)
 
             archs.append(arch)

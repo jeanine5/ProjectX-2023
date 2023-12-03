@@ -10,17 +10,12 @@ import torch.nn.functional as F
 import torch.optim as optim
 from thop import profile
 
-from torchvision.datasets import MNIST
-import torchvision.transforms as transforms
-
-from torch.utils.data import DataLoader, TensorDataset
-
 
 class NeuralNetwork(nn.Module):
     def __init__(self, hidden_sizes):
         super().__init__()
 
-        input_size = 784
+        input_size = 3072
         self.hidden_layers = nn.ModuleList()
         for hidden_size in hidden_sizes:
             hidden_layer = nn.Linear(input_size, hidden_size)
@@ -31,8 +26,7 @@ class NeuralNetwork(nn.Module):
         self.activation = nn.ReLU()
 
     def forward(self, x):
-        batch_size = len(x)
-        x = x.view(batch_size, 784)
+        x = x.view(len(x), -1)
 
         for layer in self.hidden_layers:
             h = layer(x)
@@ -41,7 +35,6 @@ class NeuralNetwork(nn.Module):
         output = self.output_layer(x)
 
         return output
-
 
 class NeuralArchitecture:
     def __init__(self, hidden_sizes):
@@ -109,6 +102,8 @@ class NeuralArchitecture:
 
     def flops_estimation(self, input_size=(1, 1, 28, 28)):
         """
+        If using MNIST: input_size=(1, 1, 28, 28)
+        If using CIFAR10: input_size=(1, 3, 32, 32)
 
         :param input_size:
         :return:
