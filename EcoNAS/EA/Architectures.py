@@ -15,7 +15,8 @@ class NeuralNetwork(nn.Module):
     def __init__(self, hidden_sizes):
         super().__init__()
 
-        input_size = 3072
+        input_size = 784
+        # input_size = 784 if MNIST else 3072
         self.hidden_layers = nn.ModuleList()
         for hidden_size in hidden_sizes:
             hidden_layer = nn.Linear(input_size, hidden_size)
@@ -26,7 +27,8 @@ class NeuralNetwork(nn.Module):
         self.activation = nn.ReLU()
 
     def forward(self, x):
-        x = x.view(len(x), -1)
+        batch_size = len(x)
+        x = x.view(batch_size, 784)
 
         for layer in self.hidden_layers:
             h = layer(x)

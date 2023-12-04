@@ -23,10 +23,10 @@ class NSGA_II:
         :return:
         """
         archs = []
-        num_hidden_layers = random.randint(1, max_hidden_layers)
-        hidden_sizes = [random.randint(1, max_hidden_size) for _ in range(num_hidden_layers)]
 
         for _ in range(self.population_size):
+            num_hidden_layers = random.randint(1, max_hidden_layers)
+            hidden_sizes = [random.randint(1, max_hidden_size) for _ in range(num_hidden_layers)]
             arch = NeuralArchitecture(hidden_sizes)
 
             archs.append(arch)
@@ -48,7 +48,7 @@ class NSGA_II:
 
         # step 2 : evaluate the objective functions for each arch
         for a in archs:
-            a.train(train_loader, 1)
+            a.train(train_loader, 3)
             a.evaluate_all_objectives(test_loader)
 
         # step 3: set the non-dominated ranks for the population and sort the architectures by rank

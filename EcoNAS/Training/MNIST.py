@@ -27,7 +27,7 @@ train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=
 test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
 
 
-nsga = NSGA_II(15, 3, 0.5, 0.5)
+nsga = NSGA_II(25, 10, 0.5, 0.5)
 
 architectures = nsga.evolve(20, 200, train_loader, test_loader)
 

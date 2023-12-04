@@ -154,10 +154,3 @@ def generate_offspring(population, crossover_rate, mutation_rate, train_loader, 
 
     return offspring_pop
 
-
-def remove_lowest_scoring(population):
-    """
-
-    :param population:
-    :return:
-    """
