@@ -108,7 +108,7 @@ def mutate_random_hidden_sizes(architecture: NeuralArchitecture):
     mutated_architecture = architecture.clone()
     max_hidden_size = max(mutated_architecture.hidden_sizes)
     for i in range(len(mutated_architecture.hidden_sizes)):
-        mutated_architecture.hidden_sizes[i] = random.randint(1, max_hidden_size)
+        mutated_architecture.hidden_sizes[i] = random.randint(10, max_hidden_size)
     return mutated_architecture
 
 
@@ -123,7 +123,7 @@ def mutate_add_remove_hidden_layer(architecture: NeuralArchitecture):
         index_to_remove = random.randint(0, len(mutated_architecture.hidden_sizes) - 1)
         del mutated_architecture.hidden_sizes[index_to_remove]
     else:
-        mutated_architecture.hidden_sizes.append(random.randint(1, max(mutated_architecture.hidden_sizes)))
+        mutated_architecture.hidden_sizes.append(random.randint(10, max(mutated_architecture.hidden_sizes)))
     return mutated_architecture
 
 
@@ -154,3 +154,10 @@ def generate_offspring(population, crossover_rate, mutation_rate, train_loader, 
 
     return offspring_pop
 
+
+def remove_lowest_scoring(population):
+    """
+
+    :param population:
+    :return:
+    """

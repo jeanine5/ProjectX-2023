@@ -23,10 +23,9 @@ class NSGA_II:
         :return:
         """
         archs = []
-
         for _ in range(self.population_size):
-            num_hidden_layers = random.randint(1, max_hidden_layers)
-            hidden_sizes = [random.randint(1, max_hidden_size) for _ in range(num_hidden_layers)]
+            num_hidden_layers = random.randint(3, max_hidden_layers)
+            hidden_sizes = [random.randint(10, max_hidden_size) for _ in range(num_hidden_layers)]
             arch = NeuralArchitecture(hidden_sizes)
 
             archs.append(arch)
@@ -52,12 +51,13 @@ class NSGA_II:
             a.evaluate_all_objectives(test_loader)
 
         # step 3: set the non-dominated ranks for the population and sort the architectures by rank
-        # set_non_dominated(archs)  # fitness vals
-        # archs.sort(key=lambda arch: arch.nondominated_rank)
+        set_non_dominated(archs)  # fitness vals
+        archs.sort(key=lambda arch: arch.nondominated_rank)
 
         # step 4: create an offspring population Q0 of size N
         offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, train_loader,
                                            test_loader)
+        set_non_dominated(offspring_pop)
 
         # step 5: start algorithm's counter
         for generation in range(self.generations):
@@ -65,8 +65,9 @@ class NSGA_II:
             combined_population = archs + offspring_pop  # of size 2N
             set_non_dominated(combined_population)
 
-            population_by_objectives = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'],
-                                                  ind.objectives['energy']] for ind in combined_population])
+            population_by_objectives = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability']
+                                                  ] for ind in combined_population])
+            # ind.objectives['energy']
 
             # step 7:
             non_dom_fronts = fast_non_dominating_sort(population_by_objectives)
@@ -80,7 +81,7 @@ class NSGA_II:
                 # calculated crowding-distance
                 crowding_metric = crowding_distance_assignment(population_by_objectives, non_dom_fronts[i])
                 for j in range(len(corresponding_archs)):
-                    corresponding_archs[j].train(train_loader, 5)
+                    corresponding_archs[j].train(train_loader, 8)
                     corresponding_archs[j].evaluate_all_objectives(test_loader)
                     corresponding_archs[j].crowding_distance = crowding_metric[j]
                 archs += corresponding_archs
@@ -96,6 +97,5 @@ class NSGA_II:
             # step 10: generate new offspring population
             offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, train_loader,
                                                test_loader)
-            set_non_dominated(offspring_pop)
 
         return archs

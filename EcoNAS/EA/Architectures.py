@@ -11,12 +11,17 @@ import torch.optim as optim
 from thop import profile
 
 
+from torchvision.datasets import MNIST
+import torchvision.transforms as transforms
+
+from torch.utils.data import DataLoader, TensorDataset
+
+
 class NeuralNetwork(nn.Module):
     def __init__(self, hidden_sizes):
         super().__init__()
 
         input_size = 784
-        # input_size = 784 if MNIST else 3072
         self.hidden_layers = nn.ModuleList()
         for hidden_size in hidden_sizes:
             hidden_layer = nn.Linear(input_size, hidden_size)
@@ -38,6 +43,7 @@ class NeuralNetwork(nn.Module):
 
         return output
 
+
 class NeuralArchitecture:
     def __init__(self, hidden_sizes):
         self.model = NeuralNetwork(hidden_sizes)
@@ -45,8 +51,8 @@ class NeuralArchitecture:
         self.activation = nn.ReLU()
         self.objectives = {
             'accuracy': 0.0,
-            'interpretability': 0.0,
-            'energy': 0.0
+            'interpretability': 0.0
+           # 'energy': 0.0
         }
         self.nondominated_rank = 0
         self.crowding_distance = 0.0
@@ -104,8 +110,6 @@ class NeuralArchitecture:
 
     def flops_estimation(self, input_size=(1, 1, 28, 28)):
         """
-        If using MNIST: input_size=(1, 1, 28, 28)
-        If using CIFAR10: input_size=(1, 3, 32, 32)
 
         :param input_size:
         :return:
@@ -181,9 +185,9 @@ class NeuralArchitecture:
 
         acc_loss, acc = self.evaluate_accuracy(loader)
         interpretable = self.evaluate_interpretability(loader)
-        flops = self.flops_estimation()
+        # flops = self.flops_estimation()
 
-        return acc_loss, acc, interpretable, flops
+        return acc_loss, acc, interpretable
 
     def train(self, loader, epochs):
         """

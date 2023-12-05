@@ -45,17 +45,16 @@ def set_non_dominated(population: list[NeuralArchitecture]):
     :return:
     """
 
-    pbo = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'],
-                     ind.objectives['energy']] for ind in population])
+    pbo = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability']
+                     ] for ind in population])
+    # ind.objectives['energy']
 
     for i in range(len(population)):
-        non_dom_count = 1
         for j in range(len(population)):
             if i != j:
                 dominates = is_pareto_dominant(pbo[i], pbo[j])
                 if not dominates:
-                    non_dom_count += 1
-        population[i].nondominated_rank = non_dom_count
+                    population[i].nondominated_rank += 1
 
 
 def is_pareto_dominant(p, q):
@@ -65,10 +64,11 @@ def is_pareto_dominant(p, q):
     :param q:
     :return:
     """
-    first_two_objectives_dominate = np.all(p[:2] >= q[:2]) and np.any(p[:2] > q[:2])
-    third_objective_minimization = np.all(p[2] <= q[2])
+    first_two_objectives_dominate = np.all(p >= q) and np.any(p > q)
+    #third_objective_minimization = p[2] <= q[2]
+    # and third_objective_minimization
 
-    return first_two_objectives_dominate and third_objective_minimization
+    return first_two_objectives_dominate
 
 
 def fast_non_dominating_sort(population):
@@ -145,4 +145,43 @@ def crowding_distance_assignment(pop_by_obj, front: list):
     return crowding_metrics
 
 
+def fronts_to_nondomination_rank(fronts):
+    """
 
+    :param fronts:
+    :return:
+    """
+    non_domination_rank_dict = {}
+    for i, front in enumerate(fronts):
+        for x in front:
+            non_domination_rank_dict[x] = i
+    return non_domination_rank_dict
+
+
+def nondominated_sort(nondomination_rank_dict, crowding):
+    """
+
+    :param nondomination_rank_dict:
+    :param crowding:
+    :return:
+    """
+    num_individuals = len(crowding)
+    indicies = list(range(num_individuals))
+
+    def nondominated_compare(a, b):
+
+        if nondomination_rank_dict[a] > nondomination_rank_dict[b]:  # domination rank, smaller better
+            return -1
+        elif nondomination_rank_dict[a] < nondomination_rank_dict[b]:
+            return 1
+        else:
+            if crowding[a] < crowding[b]:  # crowding metrics, larger better
+                return -1
+            elif crowding[a] > crowding[b]:
+                return 1
+            else:
+                return 0
+
+    non_dominated_sorted_indices = sorted(indicies, key=functools.cmp_to_key(nondominated_compare),
+                                          reverse=True)  # decreasing order, the best is the first
+    return non_dominated_sorted_indices
