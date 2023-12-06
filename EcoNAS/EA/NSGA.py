@@ -61,13 +61,15 @@ class NSGA_II:
 
         # step 5: start algorithm's counter
         for generation in range(self.generations):
+            print(f'Generation: {generation}')
             # step 6: combine parent and offspring population
             combined_population = archs + offspring_pop  # of size 2N
             set_non_dominated(combined_population)
 
-            population_by_objectives = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability']
-                                                  ] for ind in combined_population])
+            population_by_objectives = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'],
+                                                  ind.objectives['energy']] for ind in combined_population])
             # ind.objectives['energy']
+            # , ind.objectives['interpretability']
 
             # step 7:
             non_dom_fronts = fast_non_dominating_sort(population_by_objectives)

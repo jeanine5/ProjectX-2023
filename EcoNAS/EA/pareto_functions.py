@@ -45,8 +45,9 @@ def set_non_dominated(population: list[NeuralArchitecture]):
     :return:
     """
 
-    pbo = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability']
+    pbo = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'], ind.objectives['energy']
                      ] for ind in population])
+    # , ind.objectives['interpretability']
     # ind.objectives['energy']
 
     for i in range(len(population)):
@@ -64,11 +65,11 @@ def is_pareto_dominant(p, q):
     :param q:
     :return:
     """
-    first_two_objectives_dominate = np.all(p >= q) and np.any(p > q)
-    #third_objective_minimization = p[2] <= q[2]
+    first_two_objectives_dominate = np.all(p[:2] >= q[:2]) and np.any(p[:2] > q[:2])
+    third_objective_minimization = p[2] <= q[2]
     # and third_objective_minimization
 
-    return first_two_objectives_dominate
+    return first_two_objectives_dominate and third_objective_minimization
 
 
 def fast_non_dominating_sort(population):

@@ -51,8 +51,8 @@ class NeuralArchitecture:
         self.activation = nn.ReLU()
         self.objectives = {
             'accuracy': 0.0,
-            'interpretability': 0.0
-           # 'energy': 0.0
+            'interpretability': 0.0,
+            'energy': 0.0
         }
         self.nondominated_rank = 0
         self.crowding_distance = 0.0
@@ -185,9 +185,9 @@ class NeuralArchitecture:
 
         acc_loss, acc = self.evaluate_accuracy(loader)
         interpretable = self.evaluate_interpretability(loader)
-        # flops = self.flops_estimation()
+        flops = self.flops_estimation()
 
-        return acc_loss, acc, interpretable
+        return acc_loss, acc, interpretable, flops
 
     def train(self, loader, epochs):
         """
