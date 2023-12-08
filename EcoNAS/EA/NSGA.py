@@ -1,10 +1,12 @@
-import random
+"""
+This file contains the implementation of the NSGA-2 algorithm. It is a multi-objective evolutionary algorithm
+that is used for the evolutionary search of neural network architectures. The algorithm is implemented in the
+NSGA_II class. The algorithm is used in EcoNAS/Training/CIFAR.py.
+"""
 
 from EcoNAS.EA.genetic_functions import *
 from EcoNAS.EA.pareto_functions import *
-
 import functools
-
 import numpy as np
 
 
@@ -17,10 +19,10 @@ class NSGA_II:
 
     def initial_population(self, max_hidden_layers, max_hidden_size):
         """
-
-        :param max_hidden_layers:
-        :param max_hidden_size:
-        :return:
+        Initialize the population pool with random deep neural architectures
+        :param max_hidden_layers: Maximum number of hidden layers
+        :param max_hidden_size: Maximum number of hidden units per layer
+        :return: Returns a list of NeuralArchitecture objects
         """
         archs = []
         for _ in range(self.population_size):
@@ -34,12 +36,13 @@ class NSGA_II:
 
     def evolve(self, hidden_layers, hidden_size, train_loader, test_loader):
         """
-
+        The NSGA-2 algorithm. It evolves the population for a given number of generations, however
+        there is quite a bit of excessive training going on here.
         :param hidden_layers:
         :param hidden_size:
         :param train_loader:
         :param test_loader:
-        :return:
+        :return: List of the best performing NeuralArchitecture objects of size of at most population_size
         """
 
         # step 1: generate initial population
@@ -57,7 +60,6 @@ class NSGA_II:
         # step 4: create an offspring population Q0 of size N
         offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, train_loader,
                                            test_loader)
-        set_non_dominated(offspring_pop)
 
         # step 5: start algorithm's counter
         for generation in range(self.generations):
@@ -67,9 +69,8 @@ class NSGA_II:
             set_non_dominated(combined_population)
 
             population_by_objectives = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'],
-                                                  ind.objectives['energy']] for ind in combined_population])
-            # ind.objectives['energy']
-            # , ind.objectives['interpretability']
+                                                  ind.objectives['flops']] for ind in combined_population])
+
 
             # step 7:
             non_dom_fronts = fast_non_dominating_sort(population_by_objectives)

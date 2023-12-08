@@ -1,17 +1,19 @@
 """
-This contains the code for the multi and single objective optimization functions
+This contains the functions ncessary for running the genetic algorithm, NSGA-II. Here in this file, we have the
+functions for binary tournament selection, crossover, mutation, and generating offspring. You can see how these
+functions are used in the NSGA_II class in EcoNAS/EA/NSGA.py.
 """
-import random
 
+import random
 from EcoNAS.EA.Architectures import *
 
 
-def binary_tournament_selection(population, tournament_size=2):
+def binary_tournament_selection(population: list[NeuralArchitecture], tournament_size=2):
     """
-
-    :param population:
-    :param tournament_size:
-    :return:
+    Perform binary tournament selection on the population
+    :param population: list of NeuralArchitecture objects
+    :param tournament_size: size of the tournament, default is 2 for binary tournament selection
+    :return: the NeuralArchitecture object with the best fitness value
     """
 
     # select 2 parent models from population P
@@ -21,12 +23,12 @@ def binary_tournament_selection(population, tournament_size=2):
     return min(selected_parents, key=lambda arch: arch.nondominated_rank)
 
 
-def crossover(parent1, parent2, crossover_rate):
+def crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture, crossover_rate: float):
     """
-
-    :param parent1:
-    :param parent2:
-    :param crossover_rate:
+    Perform crossover on two NeuralArchitecture objects
+    :param parent1: NeuralArchitecture object
+    :param parent2: NeuralArchitecture object
+    :param crossover_rate: probability of crossover
     :return:
     """
     if random.uniform(0, 1) < crossover_rate:
@@ -37,10 +39,10 @@ def crossover(parent1, parent2, crossover_rate):
 
 def one_point_crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture):
     """
-
-    :param parent1:
-    :param parent2:
-    :return:
+    Perform one point crossover on two NeuralArchitecture objects
+    :param parent1: NeuralArchitecture object
+    :param parent2: NeuralArchitecture object
+    :return: offspring NeuralArchitecture object
     """
     # Randomly choose a crossover point based on the number of hidden layers
     crossover_point = random.randint(1, min(len(parent1.hidden_sizes), len(parent2.hidden_sizes)))
@@ -57,10 +59,10 @@ def one_point_crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture
 
 def two_point_crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture):
     """
-
-    :param parent1:
-    :param parent2:
-    :return:
+    Perform two point crossover on two NeuralArchitecture objects
+    :param parent1: NeuralArchitecture object
+    :param parent2: NeuralArchitecture object
+    :return: offspring NeuralArchitecture object
     """
     len_parent1 = len(parent1.hidden_sizes)
     len_parent2 = len(parent2.hidden_sizes)
@@ -84,12 +86,12 @@ def two_point_crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture
     return offspring
 
 
-def mutate(offspring: NeuralArchitecture, mutation_factor):
+def mutate(offspring: NeuralArchitecture, mutation_factor: float):
     """
-
-    :param offspring:
-    :param mutation_factor:
-    :return:
+    Perform mutation on a NeuralArchitecture object
+    :param offspring: NeuralArchitecture object
+    :param mutation_factor: probability of mutation
+    :return: mutated NeuralArchitecture object
     """
     if random.uniform(0, 1) < mutation_factor:
         mutated_offspring = mutate_add_remove_hidden_layer(offspring)
@@ -101,9 +103,9 @@ def mutate(offspring: NeuralArchitecture, mutation_factor):
 
 def mutate_random_hidden_sizes(architecture: NeuralArchitecture):
     """
-
-    :param architecture:
-    :return:
+    Modify the hidden sizes of a NeuralArchitecture object
+    :param architecture: NeuralArchitecture object
+    :return: mutated NeuralArchitecture object
     """
     mutated_architecture = architecture.clone()
     max_hidden_size = max(mutated_architecture.hidden_sizes)
@@ -114,9 +116,9 @@ def mutate_random_hidden_sizes(architecture: NeuralArchitecture):
 
 def mutate_add_remove_hidden_layer(architecture: NeuralArchitecture):
     """
-
-    :param architecture:
-    :return:
+    Add or remove a hidden layer from a NeuralArchitecture object
+    :param architecture: NeuralArchitecture object
+    :return: mutated NeuralArchitecture object
     """
     mutated_architecture = architecture.clone()
     if len(mutated_architecture.hidden_sizes) > 1:
@@ -127,15 +129,16 @@ def mutate_add_remove_hidden_layer(architecture: NeuralArchitecture):
     return mutated_architecture
 
 
-def generate_offspring(population, crossover_rate, mutation_rate, train_loader, test_loader):
+def generate_offspring(population: list[NeuralArchitecture], crossover_rate: float, mutation_rate: float,
+                       train_loader, test_loader):
     """
-
-    :param population:
-    :param crossover_rate:
-    :param mutation_rate::
-    :param train_loader:
-    :param test_loader:
-    :return:
+    Generate offspring population using binary tournament selection, crossover, and mutation
+    :param population: list of NeuralArchitecture objects
+    :param crossover_rate: probability of crossover
+    :param mutation_rate: probability of mutation
+    :param train_loader: Data loader for the training dataset
+    :param test_loader: Data loader for the testing dataset
+    :return: list of NeuralArchitecture objects
     """
     offspring_pop = []
 
@@ -154,10 +157,3 @@ def generate_offspring(population, crossover_rate, mutation_rate, train_loader, 
 
     return offspring_pop
 
-
-def remove_lowest_scoring(population):
-    """
-
-    :param population:
-    :return:
-    """

@@ -1,9 +1,11 @@
 """
-This contains the code for the Evolutionary Search algorithms used for our Artificial Neural Networks
+This contains the code for the neural network architecture. The neural network is a fully connected neural network
+with a variable number of hidden layers. The number of hidden layers and the number of hidden units per layer are
+hyperparameters. The neural network is used for the evolutionary search algorithms. Note, ther are no convolutional
+layers in this neural network.
 """
 
 import numpy as np
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,13 +13,13 @@ import torch.optim as optim
 from thop import profile
 
 
-from torchvision.datasets import MNIST
-import torchvision.transforms as transforms
-
-from torch.utils.data import DataLoader, TensorDataset
-
-
 class NeuralNetwork(nn.Module):
+    """
+    A fully connected neural network with a variable number of hidden layers
+    If testing with the MNIST dataset, the input size is 784 (28x28), and the output size is 10 (10 classes)
+    If testing with the CIFAR-10 dataset, the input size is 3072 (32x32x3), and the output size is 10 (10 classes)
+    If testing with the Statlog dataset, the input size is 21, and the output size is 2 (2 classes)
+    """
     def __init__(self, hidden_sizes):
         super().__init__()
 
@@ -45,6 +47,9 @@ class NeuralNetwork(nn.Module):
 
 
 class NeuralArchitecture:
+    """
+    A wrapper class for the NeuralNetwork class. This class is used for the evolutionary search algorithms
+    """
     def __init__(self, hidden_sizes):
         self.model = NeuralNetwork(hidden_sizes)
         self.hidden_sizes = hidden_sizes
@@ -52,16 +57,17 @@ class NeuralArchitecture:
         self.objectives = {
             'accuracy': 0.0,
             'interpretability': 0.0,
-            'energy': 0.0
+            'flops': 0.0
         }
         self.nondominated_rank = 0
         self.crowding_distance = 0.0
 
     def introspectability_metric(self, loader):
         """
-
-        :param loader:
-        :return:
+        Metric for evaluating the interpretability of a neural network. This is based on the paper
+        https://arxiv.org/pdf/2112.08645.pdf
+        :param loader: Data loader for the dataset
+        :return: Returns the introspectability of the neural network
         """
 
         self.model.eval()
@@ -110,9 +116,10 @@ class NeuralArchitecture:
 
     def flops_estimation(self, input_size=(1, 1, 28, 28)):
         """
-
-        :param input_size:
-        :return:
+        Estimates the number of FLOPs for the neural network
+        :param input_size: The input size of the neural network. For MNIST, this is (1, 1, 28, 28), for CIFAR-10, this
+        is (1, 3, 32, 32).
+        :return: Returns the number of FLOPs
         """
 
         self.model.eval()
@@ -123,15 +130,15 @@ class NeuralArchitecture:
         # Use thop.profile to compute FLOPs
         flops, params = profile(self.model, inputs=(dummy_input,))
 
-        self.objectives['energy'] = flops
+        self.objectives['flops'] = flops
 
         return flops
 
     def evaluate_interpretability(self, loader):
         """
-
-        :param loader:
-        :return:
+        Evaluates the interpretability of the neural network
+        :param loader: Data loader for the dataset
+        :return: Returns the interpretability of the neural network
         """
 
         interpretability = self.introspectability_metric(loader)
@@ -141,10 +148,11 @@ class NeuralArchitecture:
 
     def accuracy(self, outputs, labels):
         """
-
-        :param outputs:
-        :param labels:
-        :return:
+        This function calculates the accuracy of the neural network. It is used for training and evaluating the
+        neural network.
+        :param outputs: The outputs of the neural network. Data type is torch.Tensor
+        :param labels: The labels of the data. Data type is torch.Tensor
+        :return: Returns the accuracy of the neural network
         """
         predictions = outputs.argmax(-1)
         correct = torch.sum(labels == predictions).item()
@@ -152,9 +160,9 @@ class NeuralArchitecture:
 
     def evaluate_accuracy(self, loader):
         """
-
-        :param loader:
-        :return:
+        Evaluates the accuracy of the neural network
+        :param loader: Data loader for the dataset
+        :return: Returns the accuracy of the neural network
         """
         # loss function
         criterion = nn.CrossEntropyLoss()
@@ -178,9 +186,9 @@ class NeuralArchitecture:
 
     def evaluate_all_objectives(self, loader):
         """
-
-        :param loader:
-        :return:
+        Evaluates all the objectives of the neural network at once
+        :param loader: Data loader for the dataset
+        :return: Returns the loss, accuracy, interpretability, and FLOPs of the neural network
         """
 
         acc_loss, acc = self.evaluate_accuracy(loader)
@@ -191,10 +199,11 @@ class NeuralArchitecture:
 
     def train(self, loader, epochs):
         """
-
-        :param epochs:
-        :param loader:
-        :return:
+        Trains the neural network. Optimizer is Adam, learning rate is 1e-4, and loss function is CrossEntropyLoss
+        (can change if needed)
+        :param epochs: Number of epochs (rounds) to train the neural network for
+        :param loader: Data loader for the dataset
+        :return: Returns the loss and accuracy of the neural network
         """
         criterion = nn.CrossEntropyLoss()
         lr = 1e-4  # The learning rate is a hyperparameter
@@ -226,8 +235,4 @@ class NeuralArchitecture:
         return train_losses[-1], train_accuracies[-1]
 
     def clone(self):
-        """
-
-        :return:
-        """
         return NeuralArchitecture(self.hidden_sizes.copy())

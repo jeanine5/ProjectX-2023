@@ -1,20 +1,19 @@
 """
-
+This file contains the functions used to calculate the Pareto fronts and the crowding distance. Here, we have the
+functions for calculating the Pareto fronts, crowding distance, and the non-dominated rank. These functions are
+used in the NSGA-II class in EcoNAS/EA/NSGA.py. Note, we have conflicting objectives.
 """
 
-import functools
-
 from EcoNAS.EA.Architectures import *
-
 import numpy as np
 
 
-def get_corr_archs(front, architectures):
+def get_corr_archs(front, architectures: list[NeuralArchitecture]):
     """
-
-    :param front:
-    :param architectures:
-    :return:
+    Get the architectures corresponding to the indices in the front
+    :param front: list of indices
+    :param architectures: list of NeuralArchitecture objects
+    :return: list of NeuralArchitecture objects
     """
     corr_archs = []
     for idx in front:
@@ -23,12 +22,12 @@ def get_corr_archs(front, architectures):
     return corr_archs
 
 
-def crowded_comparison_operator(ind1, ind2):
+def crowded_comparison_operator(ind1: NeuralArchitecture, ind2: NeuralArchitecture):
     """
-
-    :param ind1:
-    :param ind2:
-    :return:
+    Crowded comparison operator defined from Deb et al. (2002). https://ieeexplore.ieee.org/document/996017
+    :param ind1: NeuralArchitecture object
+    :param ind2: NeuralArchitecture object
+    :return: True if ind1 is better than ind2, False otherwise
     """
     if ind1.nondominated_rank < ind2.nondominated_rank:
         return True
@@ -40,12 +39,12 @@ def crowded_comparison_operator(ind1, ind2):
 
 def set_non_dominated(population: list[NeuralArchitecture]):
     """
-
-    :param population:
-    :return:
+    Set the non-dominated rank for each NeuralArchitecture object in the population
+    :param population: list of NeuralArchitecture objects
+    :return: None
     """
 
-    pbo = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'], ind.objectives['energy']
+    pbo = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'], ind.objectives['flops']
                      ] for ind in population])
     # , ind.objectives['interpretability']
     # ind.objectives['energy']
@@ -60,23 +59,23 @@ def set_non_dominated(population: list[NeuralArchitecture]):
 
 def is_pareto_dominant(p, q):
     """
-
-    :param p:
-    :param q:
-    :return:
+    Check if p dominates q
+    :param p: list of fitness values
+    :param q: list of fitness values
+    :return: True if p dominates q, False otherwise
     """
     first_two_objectives_dominate = np.all(p[:2] >= q[:2]) and np.any(p[:2] > q[:2])
     third_objective_minimization = p[2] <= q[2]
-    # and third_objective_minimization
 
     return first_two_objectives_dominate and third_objective_minimization
 
 
 def fast_non_dominating_sort(population):
     """
-    Calculates the Pareto fronts.
-    :param population:
-    :return:
+    Fast non-dominated sort algorithm from Deb et al. (2002). https://ieeexplore.ieee.org/document/996017
+    Code from: https://github.com/adam-katona/NSGA_2_tutorial/blob/master/NSGA_2_tutorial.ipynb
+    :param population:  list of fitness values
+    :return: list of Pareto fronts
     """
 
     domination_sets = []
@@ -112,7 +111,8 @@ def fast_non_dominating_sort(population):
 
 def crowding_distance_assignment(pop_by_obj, front: list):
     """
-
+    Crowding distance assignment from Deb et al. (2002). https://ieeexplore.ieee.org/document/996017
+    Code from: https://github.com/adam-katona/NSGA_2_tutorial/blob/master/NSGA_2_tutorial.ipynb
     :param pop_by_obj:
     :param front:
     :return:
@@ -148,7 +148,6 @@ def crowding_distance_assignment(pop_by_obj, front: list):
 
 def fronts_to_nondomination_rank(fronts):
     """
-
     :param fronts:
     :return:
     """
@@ -158,31 +157,3 @@ def fronts_to_nondomination_rank(fronts):
             non_domination_rank_dict[x] = i
     return non_domination_rank_dict
 
-
-def nondominated_sort(nondomination_rank_dict, crowding):
-    """
-
-    :param nondomination_rank_dict:
-    :param crowding:
-    :return:
-    """
-    num_individuals = len(crowding)
-    indicies = list(range(num_individuals))
-
-    def nondominated_compare(a, b):
-
-        if nondomination_rank_dict[a] > nondomination_rank_dict[b]:  # domination rank, smaller better
-            return -1
-        elif nondomination_rank_dict[a] < nondomination_rank_dict[b]:
-            return 1
-        else:
-            if crowding[a] < crowding[b]:  # crowding metrics, larger better
-                return -1
-            elif crowding[a] > crowding[b]:
-                return 1
-            else:
-                return 0
-
-    non_dominated_sorted_indices = sorted(indicies, key=functools.cmp_to_key(nondominated_compare),
-                                          reverse=True)  # decreasing order, the best is the first
-    return non_dominated_sorted_indices
