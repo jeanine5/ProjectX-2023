@@ -15,7 +15,7 @@ def run_algorithm(dataset: str):
     train_loader, test_loader = load_data(dataset)
 
     # modify this before you run the algorithm below
-    nsga = NSGA_II(population_size=15, generations=3, crossover_factor=0.5, mutation_factor=0.5)
+    nsga = NSGA_II(population_size=15, generations=1, crossover_factor=0.5, mutation_factor=0.5)
     architectures = nsga.evolve(hidden_layers=20, hidden_size=200, train_loader=train_loader, test_loader=test_loader)
 
     avg_loss = []
@@ -34,20 +34,14 @@ def run_algorithm(dataset: str):
         acc_loss, acc, interpretability, flops = arch.evaluate_all_objectives(test_loader)
         avg_loss.append(acc_loss)
 
-        if acc < min_acc:
-            min_acc = acc
-        if acc > max_acc:
-            max_acc = acc
+        min_acc = min(min_acc, acc)
+        max_acc = max(max_acc, acc)
 
-        if interpretability < min_interpretability:
-            min_interpretability = interpretability
-        if interpretability > max_interpretability:
-            max_interpretability = interpretability
+        min_interpretability = min(min_interpretability, interpretability)
+        max_interpretability = max(max_interpretability, interpretability)
 
-        if flops < min_flops:
-            min_flops = flops
-        if flops > max_flops:
-            max_flops = flops
+        min_flops = min(min_flops, flops)
+        max_flops = max(max_flops, flops)
 
     print(f'Average Loss: {sum(avg_loss) / len(avg_loss)}')
     print(
