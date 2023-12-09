@@ -59,7 +59,7 @@ class NSGA_II:
 
         # step 4: create an offspring population Q0 of size N
         offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, train_loader,
-                                           test_loader)
+                                           test_loader, 1)
 
         # step 5: start algorithm's counter
         for generation in range(self.generations):
@@ -84,7 +84,7 @@ class NSGA_II:
                 # calculated crowding-distance
                 crowding_metric = crowding_distance_assignment(population_by_objectives, non_dom_fronts[i])
                 for j in range(len(corresponding_archs)):
-                    corresponding_archs[j].train(train_loader, 8)
+                    corresponding_archs[j].train(train_loader, generation + 1)
                     corresponding_archs[j].evaluate_all_objectives(test_loader)
                     corresponding_archs[j].crowding_distance = crowding_metric[j]
                 archs += corresponding_archs
@@ -99,6 +99,6 @@ class NSGA_II:
 
             # step 10: generate new offspring population
             offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, train_loader,
-                                               test_loader)
+                                               test_loader, generation + 1)
 
         return archs

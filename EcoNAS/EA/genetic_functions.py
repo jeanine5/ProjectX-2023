@@ -130,7 +130,7 @@ def mutate_add_remove_hidden_layer(architecture: NeuralArchitecture):
 
 
 def generate_offspring(population: list[NeuralArchitecture], crossover_rate: float, mutation_rate: float,
-                       train_loader, test_loader):
+                       train_loader, test_loader, epoch):
     """
     Generate offspring population using binary tournament selection, crossover, and mutation
     :param population: list of NeuralArchitecture objects
@@ -138,6 +138,7 @@ def generate_offspring(population: list[NeuralArchitecture], crossover_rate: flo
     :param mutation_rate: probability of mutation
     :param train_loader: Data loader for the training dataset
     :param test_loader: Data loader for the testing dataset
+    :param epoch: Current epoch of training
     :return: list of NeuralArchitecture objects
     """
     offspring_pop = []
@@ -150,7 +151,7 @@ def generate_offspring(population: list[NeuralArchitecture], crossover_rate: flo
 
         mutated_offspring = mutate(offspring, mutation_rate)
 
-        mutated_offspring.train(train_loader, 8)
+        mutated_offspring.train(train_loader, epoch)
         mutated_offspring.evaluate_all_objectives(test_loader)
 
         offspring_pop.append(mutated_offspring)

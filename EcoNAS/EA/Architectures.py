@@ -13,6 +13,11 @@ import torch.optim as optim
 from thop import profile
 
 
+device = "mps" if torch.backends.mps.is_available() else "cpu"
+device = torch.device(device)
+print(f"Using device: {device}")
+
+
 class NeuralNetwork(nn.Module):
     """
     A fully connected neural network with a variable number of hidden layers
@@ -35,7 +40,7 @@ class NeuralNetwork(nn.Module):
 
     def forward(self, x):
         batch_size = len(x)
-        x = x.view(batch_size, 784)
+        x = x.view(batch_size, 784).to(device)
 
         for layer in self.hidden_layers:
             h = layer(x)
@@ -51,7 +56,7 @@ class NeuralArchitecture:
     A wrapper class for the NeuralNetwork class. This class is used for the evolutionary search algorithms
     """
     def __init__(self, hidden_sizes):
-        self.model = NeuralNetwork(hidden_sizes)
+        self.model = NeuralNetwork(hidden_sizes).to(device)
         self.hidden_sizes = hidden_sizes
         self.activation = nn.ReLU()
         self.objectives = {
@@ -76,11 +81,12 @@ class NeuralArchitecture:
 
         with torch.no_grad():
             for inputs, targets in loader:
+                inputs, targets = inputs.to(device), targets.to(device)
                 outputs = self.model(inputs)
 
                 # convert targets and outputs to numpy arrays
-                targets_np = targets.numpy()
-                outputs_np = F.relu(outputs).numpy()  # Assuming ReLU activation
+                targets_np = targets.cpu().numpy()  # Use .cpu() to copy to host memory
+                outputs_np = F.relu(outputs).cpu().numpy()
 
                 for i in range(len(targets_np)):
                     target_class = targets_np[i]
@@ -102,8 +108,8 @@ class NeuralArchitecture:
                 if cls1 < cls2:
                     # cosine distance between mean activations of two classes
                     cosine_distance = F.cosine_similarity(
-                        torch.FloatTensor(mean_activations[cls1]),
-                        torch.FloatTensor(mean_activations[cls2]),
+                        torch.FloatTensor(mean_activations[cls1]).to(device),  # Move to GPU
+                        torch.FloatTensor(mean_activations[cls2]).to(device),
                         dim=0
                     ).item()
 
@@ -124,10 +130,7 @@ class NeuralArchitecture:
 
         self.model.eval()
 
-        # Create dummy input tensor
-        dummy_input = torch.randn(input_size)
-
-        # Use thop.profile to compute FLOPs
+        dummy_input = torch.randn(input_size).to(device)
         flops, params = profile(self.model, inputs=(dummy_input,))
 
         self.objectives['flops'] = flops
@@ -155,7 +158,7 @@ class NeuralArchitecture:
         :return: Returns the accuracy of the neural network
         """
         predictions = outputs.argmax(-1)
-        correct = torch.sum(labels == predictions).item()
+        correct = torch.sum(labels.to(device) == predictions.to(device)).item()
         return correct / len(labels)
 
     def evaluate_accuracy(self, loader):
@@ -174,6 +177,7 @@ class NeuralArchitecture:
 
         with torch.no_grad():
             for inputs, targets in loader:
+                inputs, targets = inputs.to(device), targets.to(device)
                 outputs = self.model(inputs)
                 loss += criterion(outputs, targets).item() * len(targets)
 
@@ -219,6 +223,7 @@ class NeuralArchitecture:
         for epoch in range(epochs):
             self.model.train()
             for inputs, targets in loader:
+                inputs, targets = inputs.to(device), targets.to(device)
                 optimizer.zero_grad()
                 outputs = self.model(inputs)
                 loss = criterion(outputs, targets)

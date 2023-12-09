@@ -15,7 +15,7 @@ def run_algorithm(dataset: str):
     train_loader, test_loader = load_data(dataset)
 
     # modify this before you run the algorithm below
-    nsga = NSGA_II(population_size=15, generations=1, crossover_factor=0.5, mutation_factor=0.5)
+    nsga = NSGA_II(population_size=15, generations=8, crossover_factor=0.5, mutation_factor=0.5)
     architectures = nsga.evolve(hidden_layers=20, hidden_size=200, train_loader=train_loader, test_loader=test_loader)
 
     avg_loss = []
