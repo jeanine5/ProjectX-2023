@@ -5,6 +5,8 @@ functions are used in the NSGA_II class in EcoNAS/EA/NSGA.py.
 """
 
 import random
+
+from EcoNAS.Benchmark.performance_predictor import *
 from EcoNAS.EA.Architectures import *
 
 
@@ -130,7 +132,7 @@ def mutate_add_remove_hidden_layer(architecture: NeuralArchitecture):
 
 
 def generate_offspring(population: list[NeuralArchitecture], crossover_rate: float, mutation_rate: float,
-                       train_loader, test_loader, epoch):
+                       regression_trainer):
     """
     Generate offspring population using binary tournament selection, crossover, and mutation
     :param population: list of NeuralArchitecture objects
@@ -151,10 +153,15 @@ def generate_offspring(population: list[NeuralArchitecture], crossover_rate: flo
 
         mutated_offspring = mutate(offspring, mutation_rate)
 
-        mutated_offspring.train(train_loader, epoch)
-        mutated_offspring.evaluate_all_objectives(test_loader)
+        predicted_performance = regression_trainer.predict_performance(mutated_offspring)
+        mutated_offspring.objectives = {
+            'accuracy': predicted_performance[0],
+            'interpretability': predicted_performance[1],
+            'flops': predicted_performance[2]
+        }
 
         offspring_pop.append(mutated_offspring)
 
     return offspring_pop
+
 
