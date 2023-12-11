@@ -21,6 +21,6 @@ train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=
 test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
 
 benchmark_dataset = BenchmarkDataset()
-architectures = benchmark_dataset.generate_architectures(max_hidden_layers=8, max_hidden_size=128)
+architectures = benchmark_dataset.generate_architectures(max_hidden_layers=6, max_hidden_size=128)
 benchmark_dataset.evaluate_architectures(architectures, train_loader, test_loader)
 benchmark_dataset.store_results_to_csv(filename='cifar10_benchmark_results.csv')
