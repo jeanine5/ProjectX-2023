@@ -14,7 +14,7 @@ class BenchmarkDataset:
     def generate_architectures(self, max_hidden_layers, max_hidden_size):
         archs = []
 
-        for _ in range(25):
+        for _ in range(50):
             num_hidden_layers = random.randint(3, max_hidden_layers)
             hidden_sizes = [random.randint(10, max_hidden_size) for _ in range(num_hidden_layers)]
             arch = NeuralArchitecture(hidden_sizes)
