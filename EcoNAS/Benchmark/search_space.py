@@ -17,7 +17,7 @@ class BenchmarkDataset:
     def generate_architectures(self, max_hidden_layers, max_hidden_size):
         archs = []
 
-        for _ in range(300):
+        for _ in range(10):
             num_hidden_layers = random.randint(3, max_hidden_layers)
             hidden_sizes = [random.randint(10, max_hidden_size) for _ in range(num_hidden_layers)]
             arch = NeuralArchitecture(hidden_sizes)
@@ -26,7 +26,7 @@ class BenchmarkDataset:
 
         return archs
 
-    def evaluate_architectures(self, architectures, train_loader, test_loader, epochs=3):
+    def evaluate_architectures(self, architectures, train_loader, test_loader, epochs=8):
         """
         Train and evaluate a list of architectures for minimal epochs
         """
@@ -47,31 +47,36 @@ class BenchmarkDataset:
             self.results.append(result)
             i += 1
 
-    def store_results_to_csv(self, filename='benchmark_results.csv'):
+    def store_results_to_csv(self, filename='mnist_benchmark_results.csv'):
         """
         Store the benchmark results in a CSV file
         """
-        with open(filename, 'w', newline='') as csvfile:
+        with open(filename, 'a', newline='') as csvfile:
             fieldnames = ['hidden_layers', 'hidden_sizes_mean', 'accuracy', 'interpretability', 'flops']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-            writer.writeheader()
+            csvfile.seek(0, 2)
+            is_empty = csvfile.tell() == 0
+
+            if is_empty:
+                writer.writeheader()
+
             for result in self.results:
                 writer.writerow(result)
 
 
-#transform = transforms.ToTensor()
+transform = transforms.ToTensor()
 
-#train_dataset = MNIST(root='../data', train=True, transform=transform, download=True)
-#test_dataset = MNIST(root='../data', train=False, transform=transform)
+train_dataset = MNIST(root='../data', train=True, transform=transform, download=True)
+test_dataset = MNIST(root='../data', train=False, transform=transform)
 
-#batch_size = 128
-#train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
-#test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
+batch_size = 128
+train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
 
-#benchmark_dataset = BenchmarkDataset()
-#architectures = benchmark_dataset.generate_architectures(max_hidden_layers=10, max_hidden_size=128)
-#benchmark_dataset.evaluate_architectures(architectures, train_loader, test_loader)
-#benchmark_dataset.store_results_to_csv()
+benchmark_dataset = BenchmarkDataset()
+architectures = benchmark_dataset.generate_architectures(max_hidden_layers=20, max_hidden_size=200)
+benchmark_dataset.evaluate_architectures(architectures, train_loader, test_loader)
+benchmark_dataset.store_results_to_csv()
 
 
