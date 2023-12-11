@@ -45,17 +45,16 @@ class NSGA_II:
         :return: List of the best performing NeuralArchitecture objects of size of at most population_size
         """
         # step 0: initial search space
-        regression_trainer = RegressionModelTrainer('../Benchmark/benchmark_results.csv')
-        regression_trainer.train_regression_model()
-        regression_trainer.evaluate_model()
+        regression_trainer = NASRegressionBenchmark('../Benchmark/mnist_benchmark_results.csv')
+        regression_trainer.train_models()
+        regression_trainer.evaluate_models()
 
         # step 1: generate initial population
         archs = self.initial_population(hidden_layers, hidden_size)
 
         # step 2 : evaluate the objective functions for each arch
         for a in archs:
-            new_architecture = {'hidden_layers': [len(a.hidden_sizes)], 'hidden_sizes': [a.hidden_sizes]}
-            predicted_performance = regression_trainer.predict_performance(new_architecture)
+            predicted_performance = regression_trainer.predict_performance(a)
             a.objectives = {
                 'accuracy': predicted_performance[0],
                 'interpretability': predicted_performance[1],
@@ -106,10 +105,8 @@ class NSGA_II:
             last_front_archs = get_corr_archs(non_dom_fronts[i], combined_population)
             last_front_archs.sort(key=functools.cmp_to_key(crowded_comparison_operator), reverse=True)
 
-            # step 9: set new parent population
             archs = archs + last_front_archs[1: self.population_size - len(archs)]
 
-            # step 10: generate new offspring population
             offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, regression_trainer)
 
         return archs

@@ -15,8 +15,8 @@ def run_algorithm(dataset: str):
     train_loader, test_loader = load_data(dataset)
 
     # modify this before you run the algorithm below
-    nsga = NSGA_II(population_size=15, generations=8, crossover_factor=0.5, mutation_factor=0.5)
-    architectures = nsga.evolve(hidden_layers=20, hidden_size=200, train_loader=train_loader, test_loader=test_loader)
+    nsga = NSGA_II(population_size=200, generations=18, crossover_factor=0.75, mutation_factor=0.25)
+    architectures = nsga.evolve(hidden_layers=10, hidden_size=128, train_loader=train_loader, test_loader=test_loader)
 
     avg_loss = []
 
@@ -30,9 +30,7 @@ def run_algorithm(dataset: str):
     max_flops = -math.inf
 
     for arch in architectures:
-        arch.train(train_loader, 12)
-        acc_loss, acc, interpretability, flops = arch.evaluate_all_objectives(test_loader)
-        avg_loss.append(acc_loss)
+        acc, interpretability, flops = arch.objectives['accuracy'], arch.objectives['interpretability'], arch.objectives['flops']
 
         min_acc = min(min_acc, acc)
         max_acc = max(max_acc, acc)
@@ -43,7 +41,6 @@ def run_algorithm(dataset: str):
         min_flops = min(min_flops, flops)
         max_flops = max(max_flops, flops)
 
-    print(f'Average Loss: {sum(avg_loss) / len(avg_loss)}')
     print(
         f'Average Accuracy: {calculate_average_accuracy(architectures)}, Min Accuracy: {min_acc}, Max Accuracy: {max_acc}')
     print(
