@@ -28,7 +28,7 @@ class NeuralNetwork(nn.Module):
     def __init__(self, hidden_sizes):
         super().__init__()
 
-        input_size = 3072
+        input_size = 784
         self.hidden_layers = nn.ModuleList()
         for hidden_size in hidden_sizes:
             hidden_layer = nn.Linear(input_size, hidden_size)
@@ -40,7 +40,7 @@ class NeuralNetwork(nn.Module):
 
     def forward(self, x):
         batch_size = len(x)
-        x = x.view(batch_size, 3072).to(device)
+        x = x.view(batch_size, 784).to(device)
 
         for layer in self.hidden_layers:
             h = layer(x)
@@ -120,7 +120,7 @@ class NeuralArchitecture:
 
         return introspectability
 
-    def flops_estimation(self, input_size=(1, 3, 32, 32)):
+    def flops_estimation(self, input_size=(1, 1, 28, 28)):
         """
         Estimates the number of FLOPs for the neural network
         :param input_size: The input size of the neural network. For MNIST, this is (1, 1, 28, 28), for CIFAR-10, this
