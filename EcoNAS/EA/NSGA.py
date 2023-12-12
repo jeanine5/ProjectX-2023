@@ -3,7 +3,7 @@ This file contains the implementation of the NSGA-2 algorithm. It is a multi-obj
 that is used for the evolutionary search of neural network architectures. The algorithm is implemented in the
 NSGA_II class. The algorithm is used in EcoNAS/Training/CIFAR.py.
 """
-
+from EcoNAS.Benchmark.performance_predictor import *
 from EcoNAS.EA.genetic_functions import *
 from EcoNAS.EA.pareto_functions import *
 import functools
@@ -44,22 +44,29 @@ class NSGA_II:
         :param test_loader:
         :return: List of the best performing NeuralArchitecture objects of size of at most population_size
         """
+        # step 0: initial search space
+        regression_trainer = NASRegressionBenchmark('../Benchmark/mnist_benchmark_results.csv')
+        regression_trainer.train_models()
+        regression_trainer.evaluate_models()
 
         # step 1: generate initial population
         archs = self.initial_population(hidden_layers, hidden_size)
 
         # step 2 : evaluate the objective functions for each arch
         for a in archs:
-            a.train(train_loader, 1)
-            a.evaluate_all_objectives(test_loader)
+            predicted_performance = regression_trainer.predict_performance(a)
+            a.objectives = {
+                'accuracy': predicted_performance[0],
+                'interpretability': predicted_performance[1],
+                'flops': predicted_performance[2]
+            }
 
         # step 3: set the non-dominated ranks for the population and sort the architectures by rank
         set_non_dominated(archs)  # fitness vals
         archs.sort(key=lambda arch: arch.nondominated_rank)
 
         # step 4: create an offspring population Q0 of size N
-        offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, train_loader,
-                                           test_loader, 1)
+        offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, regression_trainer)
 
         # step 5: start algorithm's counter
         for generation in range(self.generations):
@@ -84,8 +91,12 @@ class NSGA_II:
                 # calculated crowding-distance
                 crowding_metric = crowding_distance_assignment(population_by_objectives, non_dom_fronts[i])
                 for j in range(len(corresponding_archs)):
-                    corresponding_archs[j].train(train_loader, generation + 1)
-                    corresponding_archs[j].evaluate_all_objectives(test_loader)
+                    predicted_performance = regression_trainer.predict_performance(corresponding_archs[j])
+                    corresponding_archs[j].objectives = {
+                        'accuracy': predicted_performance[0],
+                        'interpretability': predicted_performance[1],
+                        'flops': predicted_performance[2]
+                    }
                     corresponding_archs[j].crowding_distance = crowding_metric[j]
                 archs += corresponding_archs
                 i += 1
@@ -94,11 +105,9 @@ class NSGA_II:
             last_front_archs = get_corr_archs(non_dom_fronts[i], combined_population)
             last_front_archs.sort(key=functools.cmp_to_key(crowded_comparison_operator), reverse=True)
 
-            # step 9: set new parent population
             archs = archs + last_front_archs[1: self.population_size - len(archs)]
 
-            # step 10: generate new offspring population
-            offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, train_loader,
-                                               test_loader, generation + 1)
+            offspring_pop = generate_offspring(archs, self.crossover_factor, self.mutation_factor, regression_trainer)
 
         return archs
+

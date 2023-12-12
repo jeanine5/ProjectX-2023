@@ -12,13 +12,8 @@ def load_data(dataset: str):
     """
     transform = transforms.ToTensor()
 
-    if dataset == 'MNIST':
-        train_dataset = MNIST(root='../data', train=True, transform=transform, download=True)
-        test_dataset = MNIST(root='../data', train=False, transform=transform)
-
-    elif dataset == 'CIFAR10':
-        train_dataset = CIFAR10(root='../data', train=True, transform=transform, download=True)
-        test_dataset = CIFAR10(root='../data', train=False, transform=transform)
+    train_dataset = MNIST(root='../data', train=True, transform=transform, download=True)
+    test_dataset = MNIST(root='../data', train=False, transform=transform)
 
     batch_size = 128
     train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
