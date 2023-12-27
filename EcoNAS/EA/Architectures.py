@@ -17,6 +17,9 @@ device = "mps" if torch.backends.mps.is_available() else "cpu"
 device = torch.device(device)
 print(f"Using device: {device}")
 
+INPUT_SIZE = 784
+OUTPUT_SIZE = 10
+
 
 class NeuralNetwork(nn.Module):
     """
@@ -25,22 +28,24 @@ class NeuralNetwork(nn.Module):
     If testing with the CIFAR-10 dataset, the input size is 3072 (32x32x3), and the output size is 10 (10 classes)
     If testing with the Statlog dataset, the input size is 21, and the output size is 2 (2 classes)
     """
-    def __init__(self, hidden_sizes):
+    def __init__(self, input_size, output_size, hidden_sizes):
         super().__init__()
 
-        input_size = 3072
+        self.input_size = input_size
+        self.output_size = output_size
+
         self.hidden_layers = nn.ModuleList()
         for hidden_size in hidden_sizes:
             hidden_layer = nn.Linear(input_size, hidden_size)
             self.hidden_layers.append(hidden_layer)
             input_size = hidden_size
 
-        self.output_layer = nn.Linear(input_size, 10)
+        self.output_layer = nn.Linear(input_size, self.output_size)
         self.activation = nn.ReLU()
 
     def forward(self, x):
         batch_size = len(x)
-        x = x.view(batch_size, 3072).to(device)
+        x = x.view(batch_size, self.input_size).to(device)
 
         for layer in self.hidden_layers:
             h = layer(x)
@@ -55,13 +60,15 @@ class NeuralArchitecture:
     """
     A wrapper class for the NeuralNetwork class. This class is used for the evolutionary search algorithms
     """
-    def __init__(self, hidden_sizes):
-        self.model = NeuralNetwork(hidden_sizes).to(device)
+    def __init__(self, input_size, output_size, hidden_sizes):
+        self.model = NeuralNetwork(input_size, output_size, hidden_sizes).to(device)
+        self.input_size = input_size
+        self.output_size = output_size
         self.hidden_sizes = hidden_sizes
         self.activation = nn.ReLU()
         self.objectives = {
             'accuracy': 0.0,
-            'interpretability': 0.0,
+            'introspectability': 0.0,
             'flops': 0.0
         }
         self.nondominated_rank = 0
@@ -120,7 +127,7 @@ class NeuralArchitecture:
 
         return introspectability
 
-    def flops_estimation(self, input_size=(1, 3, 32, 32)):
+    def flops_estimation(self, input_size=(1, 1, 28, 28)):
         """
         Estimates the number of FLOPs for the neural network
         :param input_size: The input size of the neural network. For MNIST, this is (1, 1, 28, 28), for CIFAR-10, this
@@ -137,17 +144,17 @@ class NeuralArchitecture:
 
         return flops
 
-    def evaluate_interpretability(self, loader):
+    def evaluate_introspectabilityy(self, loader):
         """
         Evaluates the interpretability of the neural network
         :param loader: Data loader for the dataset
         :return: Returns the interpretability of the neural network
         """
 
-        interpretability = self.introspectability_metric(loader)
-        self.objectives['interpretability'] = interpretability
+        introspectability = self.introspectability_metric(loader)
+        self.objectives['introspectability'] = introspectability
 
-        return interpretability
+        return introspectability
 
     def accuracy(self, outputs, labels):
         """
@@ -196,7 +203,7 @@ class NeuralArchitecture:
         """
 
         acc_loss, acc = self.evaluate_accuracy(loader)
-        interpretable = self.evaluate_interpretability(loader)
+        interpretable = self.evaluate_introspectabilityy(loader)
         flops = self.flops_estimation()
 
         return acc_loss, acc, interpretable, flops
@@ -240,4 +247,4 @@ class NeuralArchitecture:
         return train_losses[-1], train_accuracies[-1]
 
     def clone(self):
-        return NeuralArchitecture(self.hidden_sizes.copy())
+        return NeuralArchitecture(self.input_size, self.output_size, self.hidden_sizes.copy())

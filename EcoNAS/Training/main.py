@@ -3,7 +3,9 @@ The main function of the EcoNAS algorithm. This is the function that is called w
 algorithm.
 """
 import math
-from load_and_calculate import *
+
+from EcoNAS.EA.NSGA import NSGA_II
+from calculate_means import *
 
 
 def run_algorithm(dataset: str):
@@ -12,11 +14,10 @@ def run_algorithm(dataset: str):
     :param dataset:
     :return:
     """
-    train_loader, test_loader = load_data(dataset)
 
     # modify this before you run the algorithm below
     nsga = NSGA_II(population_size=200, generations=18, crossover_factor=0.75, mutation_factor=0.25)
-    architectures = nsga.evolve(hidden_layers=10, hidden_size=128, train_loader=train_loader, test_loader=test_loader)
+    architectures = nsga.evolve(hidden_layers=10, hidden_size=128, data_name=dataset)
 
     avg_loss = []
 
@@ -30,7 +31,7 @@ def run_algorithm(dataset: str):
     max_flops = -math.inf
 
     for arch in architectures:
-        acc, interpretability, flops = arch.objectives['accuracy'], arch.objectives['interpretability'], arch.objectives['flops']
+        acc, interpretability, flops = arch.objectives['accuracy'], arch.objectives['introspectability'], arch.objectives['flops']
 
         min_acc = min(min_acc, acc)
         max_acc = max(max_acc, acc)

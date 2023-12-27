@@ -3,11 +3,14 @@ This file contains the implementation of the NSGA-2 algorithm. It is a multi-obj
 that is used for the evolutionary search of neural network architectures. The algorithm is implemented in the
 NSGA_II class. The algorithm is used in EcoNAS/Training/CIFAR.py.
 """
-from EcoNAS.Benchmark.performance_predictor import *
+from EcoNAS.SearchSpace.regression_predictors import *
 from EcoNAS.EA.genetic_functions import *
 from EcoNAS.EA.pareto_functions import *
 import functools
 import numpy as np
+
+from EcoNAS.SearchSpace.regression_predictors.bin_class_predictor import CIFARBenchmark
+from EcoNAS.SearchSpace.regression_predictors.mnist_predictor import MNISTBenchmark
 
 
 class NSGA_II:
@@ -17,47 +20,62 @@ class NSGA_II:
         self.crossover_factor = crossover_factor
         self.mutation_factor = mutation_factor
 
-    def initial_population(self, max_hidden_layers, max_hidden_size):
+    def initial_population(self, max_hidden_layers, max_hidden_size, data_name):
         """
         Initialize the population pool with random deep neural architectures
         :param max_hidden_layers: Maximum number of hidden layers
         :param max_hidden_size: Maximum number of hidden units per layer
         :return: Returns a list of NeuralArchitecture objects
         """
+        if data_name == 'MNIST':
+            input_size = 784
+            output_size = 10
+        elif data_name == 'CIFAR':
+            input_size = 3072
+            output_size = 10
+        else:
+            input_size = ...
+            output_size = ...
+
         archs = []
         for _ in range(self.population_size):
             num_hidden_layers = random.randint(3, max_hidden_layers)
             hidden_sizes = [random.randint(10, max_hidden_size) for _ in range(num_hidden_layers)]
-            arch = NeuralArchitecture(hidden_sizes)
+            arch = NeuralArchitecture(input_size, output_size, hidden_sizes)
 
             archs.append(arch)
 
         return archs
 
-    def evolve(self, hidden_layers, hidden_size, train_loader, test_loader):
+    def evolve(self, hidden_layers, hidden_size, data_name):
         """
         The NSGA-2 algorithm. It evolves the population for a given number of generations, however
         there is quite a bit of excessive training going on here.
         :param hidden_layers:
         :param hidden_size:
-        :param train_loader:
-        :param test_loader:
+        :param data_name:
         :return: List of the best performing NeuralArchitecture objects of size of at most population_size
         """
         # step 0: initial search space
-        regression_trainer = NASRegressionBenchmark('../Benchmark/mnist_benchmark_results.csv')
+        if data_name == 'MNIST':
+            regression_trainer = MNISTBenchmark('../SearchSpace/Benchmarks/mnist_benchmark_results.csv')
+        elif data_name == 'CIFAR':
+            regression_trainer = CIFARBenchmark('../SearchSpace/Benchmarks/cifar_benchmark_results.csv')
+        else:
+            regression_trainer = ...
+
         regression_trainer.train_models()
         regression_trainer.evaluate_models()
 
         # step 1: generate initial population
-        archs = self.initial_population(hidden_layers, hidden_size)
+        archs = self.initial_population(hidden_layers, hidden_size, data_name)
 
         # step 2 : evaluate the objective functions for each arch
         for a in archs:
             predicted_performance = regression_trainer.predict_performance(a)
             a.objectives = {
                 'accuracy': predicted_performance[0],
-                'interpretability': predicted_performance[1],
+                'introspectability': predicted_performance[1],
                 'flops': predicted_performance[2]
             }
 
@@ -75,7 +93,7 @@ class NSGA_II:
             combined_population = archs + offspring_pop  # of size 2N
             set_non_dominated(combined_population)
 
-            population_by_objectives = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'],
+            population_by_objectives = np.array([[ind.objectives['accuracy'], ind.objectives['introspectability'],
                                                   ind.objectives['flops']] for ind in combined_population])
 
 
@@ -94,7 +112,7 @@ class NSGA_II:
                     predicted_performance = regression_trainer.predict_performance(corresponding_archs[j])
                     corresponding_archs[j].objectives = {
                         'accuracy': predicted_performance[0],
-                        'interpretability': predicted_performance[1],
+                        'introspectability': predicted_performance[1],
                         'flops': predicted_performance[2]
                     }
                     corresponding_archs[j].crowding_distance = crowding_metric[j]

@@ -6,7 +6,6 @@ functions are used in the NSGA_II class in EcoNAS/EA/NSGA.py.
 
 import random
 
-from EcoNAS.Benchmark.performance_predictor import *
 from EcoNAS.EA.Architectures import *
 
 
@@ -53,6 +52,8 @@ def one_point_crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture
     )
 
     offspring = NeuralArchitecture(
+        parent1.input_size,
+        parent1.output_size,
         offspring_hidden_sizes
     )
 
@@ -82,6 +83,8 @@ def two_point_crossover(parent1: NeuralArchitecture, parent2: NeuralArchitecture
     )
 
     offspring = NeuralArchitecture(
+        parent1.input_size,
+        parent1.output_size,
         child_hidden_sizes
     )
 
@@ -156,7 +159,7 @@ def generate_offspring(population: list[NeuralArchitecture], crossover_rate: flo
         predicted_performance = regression_trainer.predict_performance(mutated_offspring)
         mutated_offspring.objectives = {
             'accuracy': predicted_performance[0],
-            'interpretability': predicted_performance[1],
+            'introspectability': predicted_performance[1],
             'flops': predicted_performance[2]
         }
 

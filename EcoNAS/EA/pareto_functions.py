@@ -44,7 +44,7 @@ def set_non_dominated(population: list[NeuralArchitecture]):
     :return: None
     """
 
-    pbo = np.array([[ind.objectives['accuracy'], ind.objectives['interpretability'], ind.objectives['flops']
+    pbo = np.array([[ind.objectives['accuracy'], ind.objectives['introspectability'], ind.objectives['flops']
                      ] for ind in population])
 
     for i in range(len(population)):
