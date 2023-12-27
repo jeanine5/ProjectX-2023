@@ -14,12 +14,13 @@ from EcoNAS.EA.Architectures import NeuralArchitecture
 class MNISTBenchmark:
     def __init__(self, csv_filename='../SearchSpace/mnist_benchmark_results.csv'):
         self.df = pd.read_csv(csv_filename)
-        self.X = self.df[['hidden_layers', 'hidden_sizes_mean']]
+        self.X = self.df[['hidden_layers', 'hidden_sizes_mean', 'max_hidden_size', 'min_hidden_size',
+                          'variance_hidden_sizes', 'accuracy', 'introspectability', 'flops']]
         self.y_accuracy = self.df['accuracy']
         self.y_interpretability = self.df['interpretability']
         self.y_flops = self.df['flops']
         self.X_train, self.X_test, self.y_acc_train, self.y_acc_test, self.y_int_train, self.y_int_test, self.y_flops_train, self.y_flops_test = train_test_split(
-            self.X, self.y_accuracy, self.y_interpretability, self.y_flops, test_size=0.3,random_state=42)
+            self.X, self.y_accuracy, self.y_interpretability, self.y_flops, test_size=0.3, random_state=42)
         self.regression_model = LinearRegression()
 
         self.model_accuracy = LinearRegression()
